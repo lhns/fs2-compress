@@ -85,7 +85,7 @@ lazy val core = projectMatrix.in(file("core"))
 
     libraryDependencies ++= Seq(
       "co.fs2" %% "fs2-io" % V.fs2,
-      "com.github.luben" % "zstd-jni" % V.zstdJni,
+      "com.github.luben" % "zstd-jni" % V.zstdJni % Test,
       "org.apache.commons" % "commons-compress" % V.commonsCompress,
       "org.typelevel" %% "cats-effect" % V.catsEffect,
     ),
