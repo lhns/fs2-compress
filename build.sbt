@@ -50,6 +50,8 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
   },
 
+  Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
+
   Compile / doc / sources := Seq.empty,
 
   publishMavenStyle := true,
