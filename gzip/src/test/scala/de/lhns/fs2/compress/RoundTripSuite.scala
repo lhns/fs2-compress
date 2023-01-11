@@ -13,14 +13,8 @@ class RoundTripSuite extends IOSuite {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(ZipSingleFileCompressor[IO](new ZipEntry("test")).compress)
-        .through(ZipSingleFileDecompressor[IO]().decompress)
-        .through(Bzip2Compressor[IO]().compress)
-        .through(Bzip2Decompressor[IO]().decompress)
         .through(GzipCompressor[IO]().compress)
         .through(GzipDecompressor[IO]().decompress)
-        .through(ZstdCompressor[IO]().compress)
-        .through(ZstdDecompressor[IO]().decompress)
         .chunkAll
         .compile
         .lastOrError
