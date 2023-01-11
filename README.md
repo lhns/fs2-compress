@@ -14,7 +14,11 @@ for several compression algorithms.
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress" % "0.1.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.2.0"
 ```
 
 ## License
