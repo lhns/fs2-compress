@@ -24,5 +24,6 @@ jobs:
           CI_VERSION: ${{ github.ref }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SBT_OPTS: '-Xmx2G'
         run: |
           sbt "; test; sonatypeBundleClean; publishSigned; sonatypeBundleRelease"
