@@ -14,9 +14,6 @@ for several compression algorithms.
 ### build.sbt
 
 ```sbt
-// use this snippet for cats-effect 2
-libraryDependencies += "de.lhns" %% "fs2-compress" % "0.0.3"
-// use this snippet for cats-effect 3
 libraryDependencies += "de.lhns" %% "fs2-compress" % "0.1.0"
 ```
 
