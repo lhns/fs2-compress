@@ -98,7 +98,7 @@ lazy val core = projectMatrix.in(file("core"))
   .jsPlatform(scalaVersions)
 
 lazy val gzip = projectMatrix.in(file("gzip"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-gzip",
@@ -111,7 +111,7 @@ lazy val gzip = projectMatrix.in(file("gzip"))
   .jsPlatform(scalaVersions)
 
 lazy val zip = projectMatrix.in(file("zip"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-zip",
@@ -121,10 +121,9 @@ lazy val zip = projectMatrix.in(file("zip"))
     ),
   )
   .jvmPlatform(scalaVersions)
-  .jsPlatform(scalaVersions)
 
 lazy val zstd = projectMatrix.in(file("zstd"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-zstd",
@@ -138,7 +137,7 @@ lazy val zstd = projectMatrix.in(file("zstd"))
   .jvmPlatform(scalaVersions)
 
 lazy val bzip2 = projectMatrix.in(file("bzip2"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-bzip2",
@@ -151,7 +150,7 @@ lazy val bzip2 = projectMatrix.in(file("bzip2"))
   .jvmPlatform(scalaVersions)
 
 lazy val brotli = projectMatrix.in(file("brotli"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-brotli",
