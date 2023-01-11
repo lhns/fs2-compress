@@ -3,17 +3,15 @@ package de.lhns.fs2.compress
 import cats.effect.Async
 import fs2.Pipe
 import fs2.io._
-import org.apache.commons.compress.compressors.brotli.BrotliCompressorInputStream
-
-import java.io.BufferedInputStream
+import org.brotli.dec.BrotliInputStream
 
 class BrotliDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
-      .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
+      .through(toInputStream[F])
       .flatMap { inputStream =>
         readInputStream(
-          Async[F].blocking(new BrotliCompressorInputStream(inputStream)),
+          Async[F].blocking(new BrotliInputStream(inputStream)),
           chunkSize
         )
       }
@@ -21,6 +19,8 @@ class BrotliDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
 }
 
 object BrotliDecompressor {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): BrotliDecompressor[F] =
+  def defaultChunkSize: Int = BrotliInputStream.DEFAULT_INTERNAL_BUFFER_SIZE
+
+  def apply[F[_] : Async](chunkSize: Int = defaultChunkSize): BrotliDecompressor[F] =
     new BrotliDecompressor(chunkSize)
 }

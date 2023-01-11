@@ -7,6 +7,7 @@ name := (core.projectRefs.head / name).value
 
 val V = new {
   val betterMonadicFor = "0.3.1"
+  val brotli = "0.1.2"
   val catsEffect = "3.4.4"
   val commonsCompress = "1.22"
   val fs2 = "3.4.0"
@@ -38,8 +39,8 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
 
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
-    "de.lolhens" %% "munit-tagless-final" % V.munitTaglessFinal % Test,
-    "org.scalameta" %% "munit" % V.munit % Test,
+    "de.lolhens" %%% "munit-tagless-final" % V.munitTaglessFinal % Test,
+    "org.scalameta" %%% "munit" % V.munit % Test,
   ),
 
   testFrameworks += new TestFramework("munit.Framework"),
@@ -48,6 +49,8 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     case VirtualAxis.ScalaVersionAxis(version, _) if version.startsWith("2.") =>
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
   },
+
+  Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
 
   Compile / doc / sources := Seq.empty,
 
@@ -77,6 +80,11 @@ lazy val root: Project =
       publish / skip := true
     )
     .aggregate(core.projectRefs: _*)
+    .aggregate(gzip.projectRefs: _*)
+    .aggregate(zip.projectRefs: _*)
+    .aggregate(zstd.projectRefs: _*)
+    .aggregate(bzip2.projectRefs: _*)
+    .aggregate(brotli.projectRefs: _*)
 
 lazy val core = projectMatrix.in(file("core"))
   .settings(commonSettings)
@@ -84,10 +92,74 @@ lazy val core = projectMatrix.in(file("core"))
     name := "fs2-compress",
 
     libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-core" % V.fs2,
+      "org.typelevel" %%% "cats-effect" % V.catsEffect,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+  .jsPlatform(scalaVersions)
+
+lazy val gzip = projectMatrix.in(file("gzip"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-gzip",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+  .jsPlatform(scalaVersions)
+
+lazy val zip = projectMatrix.in(file("zip"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-zip",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val zstd = projectMatrix.in(file("zstd"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-zstd",
+
+    libraryDependencies ++= Seq(
       "co.fs2" %% "fs2-io" % V.fs2,
-      "com.github.luben" % "zstd-jni" % V.zstdJni % Test,
+      "com.github.luben" % "zstd-jni" % V.zstdJni,
       "org.apache.commons" % "commons-compress" % V.commonsCompress,
-      "org.typelevel" %% "cats-effect" % V.catsEffect,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val bzip2 = projectMatrix.in(file("bzip2"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-bzip2",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %% "fs2-io" % V.fs2,
+      "org.apache.commons" % "commons-compress" % V.commonsCompress,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val brotli = projectMatrix.in(file("brotli"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-brotli",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %% "fs2-io" % V.fs2,
+      "org.brotli" % "dec" % V.brotli,
     ),
   )
   .jvmPlatform(scalaVersions)

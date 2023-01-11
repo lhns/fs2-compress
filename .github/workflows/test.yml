@@ -23,4 +23,6 @@ jobs:
           cache: 'sbt'
 
       - name: Run tests
+        env:
+          SBT_OPTS: '-Xmx2G'
         run: sbt "; test"
