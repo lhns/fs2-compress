@@ -7,8 +7,8 @@ import fs2.{Chunk, Stream}
 import java.util
 import java.util.zip.ZipEntry
 
-class RoundTripSuite extends IOSuite {
-  test("round trip") {
+class ZstdRoundTripSuite extends IOSuite {
+  test("zstd round trip") {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)

@@ -7,14 +7,14 @@ import fs2.{Chunk, Stream}
 import java.util
 import java.util.zip.ZipEntry
 
-class RoundTripSuite extends IOSuite {
-  test("round trip") {
+class GzipRoundTripSuite extends IOSuite {
+  test("gzip round trip") {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(Bzip2Compressor[IO]().compress)
-        .through(Bzip2Decompressor[IO]().decompress)
+        .through(GzipCompressor[IO]().compress)
+        .through(GzipDecompressor[IO]().decompress)
         .chunkAll
         .compile
         .lastOrError
