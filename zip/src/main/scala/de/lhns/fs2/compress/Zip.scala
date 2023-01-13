@@ -6,9 +6,48 @@ import fs2.io._
 import fs2.{Pipe, Stream}
 
 import java.io.{BufferedInputStream, InputStream, OutputStream}
+import java.nio.file.attribute.FileTime
+import java.time.Instant
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 
-class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) {
+object Zip {
+  implicit val zipArchiveEntry: ArchiveEntry[ZipEntry] = new ArchiveEntry[ZipEntry] {
+    override def name(entry: ZipEntry): String = entry.getName
+
+    override def size(entry: ZipEntry): Option[Long] = Some(entry.getSize).filterNot(_ == -1)
+
+    override def isDirectory(entry: ZipEntry): Boolean = entry.isDirectory
+
+    override def lastModified(entry: ZipEntry): Option[Instant] =
+      Option(entry.getLastModifiedTime).map(_.toInstant)
+  }
+
+
+  implicit val zipArchiveEntryConstructor: ArchiveEntryConstructor[ZipEntry] = new ArchiveEntryConstructor[ZipEntry] {
+    override def apply(
+                        name: String,
+                        size: Option[Long],
+                        isDirectory: Boolean,
+                        lastModified: Option[Instant]
+                      ): ZipEntry = {
+      val fileOrDirName = name match {
+        case name if isDirectory && !name.endsWith("/") => name + "/"
+        case name if !isDirectory && name.endsWith("/") => name.dropRight(1)
+        case name => name
+      }
+      val entry = new ZipEntry(fileOrDirName)
+      entry.setSize(size.getOrElse(-1))
+      entry.setLastModifiedTime(lastModified.map(FileTime.from).orNull)
+      entry
+    }
+  }
+}
+
+class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F, ZipEntry] {
+  override def archiveEntryConstructor: ArchiveEntryConstructor[ZipEntry] = Zip.zipArchiveEntryConstructor
+
+  override def archiveEntry: ArchiveEntry[ZipEntry] = Zip.zipArchiveEntry
+
   def archive: Pipe[F, (ZipEntry, Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
@@ -50,15 +89,17 @@ object ZipArchiver {
     new ZipArchiver(method, chunkSize)
 }
 
-class ZipUnarchiver[F[_] : Async](chunkSize: Int) {
+class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry] {
+  override def archiveEntry: ArchiveEntry[ZipEntry] = Zip.zipArchiveEntry
+
   def unarchive: Pipe[F, Byte, (ZipEntry, Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
         Stream.resource(Resource.make(
           Async[F].blocking(new ZipInputStream(inputStream))
-        )(zipInputStream =>
-          Async[F].blocking(zipInputStream.close())
+        )(s =>
+          Async[F].blocking(s.close())
         ))
       }
       .flatMap { zipInputStream =>

@@ -82,6 +82,7 @@ lazy val root: Project =
     .aggregate(core.projectRefs: _*)
     .aggregate(gzip.projectRefs: _*)
     .aggregate(zip.projectRefs: _*)
+    .aggregate(tar.projectRefs: _*)
     .aggregate(zstd.projectRefs: _*)
     .aggregate(bzip2.projectRefs: _*)
     .aggregate(brotli.projectRefs: _*)
@@ -120,6 +121,19 @@ lazy val zip = projectMatrix.in(file("zip"))
 
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val tar = projectMatrix.in(file("tar"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-tar",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+      "org.apache.commons" % "commons-compress" % V.commonsCompress,
     ),
   )
   .jvmPlatform(scalaVersions)
