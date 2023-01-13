@@ -29,6 +29,9 @@ object ArchiveEntry {
 
       def lastModified(implicit archiveEntry: ArchiveEntry[A]): Option[Instant] =
         archiveEntry.lastModified(self)
+
+      def to[B](implicit archiveEntry: ArchiveEntry[A], archiveEntryConstructor: ArchiveEntryConstructor[B]): B =
+        archiveEntryConstructor.from(self)
     }
   }
 }
@@ -40,6 +43,13 @@ trait ArchiveEntryConstructor[+A] {
              isDirectory: Boolean = false,
              lastModified: Option[Instant] = None
            ): A
+
+  def from[B](entry: B)(implicit archiveEntry: ArchiveEntry[B]): A = apply(
+    name = archiveEntry.name(entry),
+    size = archiveEntry.size(entry),
+    isDirectory = archiveEntry.isDirectory(entry),
+    lastModified = archiveEntry.lastModified(entry)
+  )
 }
 
 object ArchiveEntryConstructor {
