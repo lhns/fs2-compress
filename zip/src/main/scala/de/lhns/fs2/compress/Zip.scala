@@ -36,8 +36,8 @@ object Zip {
         case name => name
       }
       val entry = new ZipEntry(fileOrDirName)
-      entry.setSize(size.getOrElse(-1))
-      entry.setLastModifiedTime(lastModified.map(FileTime.from).orNull)
+      size.foreach(entry.setSize)
+      lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
       entry
     }
   }

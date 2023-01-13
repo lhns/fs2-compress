@@ -40,8 +40,8 @@ object Tar {
         case name => name
       }
       val entry = new TarArchiveEntry(fileOrDirName)
-      entry.setSize(size.getOrElse(0))
-      entry.setLastModifiedTime(lastModified.map(FileTime.from).getOrElse(FileTime.fromMillis(0)))
+      size.foreach(entry.setSize)
+      lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
       entry
     }
 

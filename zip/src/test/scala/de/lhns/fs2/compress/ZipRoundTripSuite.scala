@@ -18,8 +18,6 @@ class ZipRoundTripSuite extends IOSuite {
         .compile
         .lastOrError
         .map(_.toArray)
-      _ = println(expected.length)
-      _ = println(obtained.length)
       _ = assert(util.Arrays.equals(expected, obtained))
     } yield ()
   }
