@@ -16,6 +16,7 @@ for several compression algorithms.
 ```sbt
 libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.2.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.2.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.2.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.2.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.2.0"
