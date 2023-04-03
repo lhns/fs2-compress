@@ -1,6 +1,6 @@
 # fs2-compress
 
-[![Test Workflow](https://github.com/lhns/fs2-compress/workflows/test/badge.svg)](https://github.com/lhns/fs2-compress/actions?query=workflow%3Atest)
+[![test](https://github.com/lhns/fs2-compress/actions/workflows/test.yml/badge.svg)](https://github.com/lhns/fs2-compress/actions/workflows/test.yml)
 [![Release Notes](https://img.shields.io/github/release/lhns/fs2-compress.svg?maxAge=3600)](https://github.com/lhns/fs2-compress/releases/latest)
 [![Maven Central](https://img.shields.io/maven-central/v/de.lhns/fs2-compress_2.13)](https://search.maven.org/artifact/de.lhns/fs2-compress_2.13)
 [![Apache License 2.0](https://img.shields.io/github/license/lhns/fs2-compress.svg?maxAge=3600)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -14,12 +14,12 @@ for several compression algorithms.
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.3.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.3.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.3.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.3.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.3.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.3.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.4.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.4.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.4.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.4.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.4.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.4.0"
 ```
 
 ### Example
