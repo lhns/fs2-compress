@@ -5,7 +5,6 @@ import cats.effect.std.Random
 import fs2.{Chunk, Stream}
 
 import java.util
-import java.util.zip.ZipEntry
 
 class ZstdRoundTripSuite extends IOSuite {
   test("zstd round trip") {

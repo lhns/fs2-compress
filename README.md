@@ -22,6 +22,27 @@ libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.3.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.3.0"
 ```
 
+### Example
+
+```scala
+import cats.effect.IO
+import de.lhns.fs2.compress.{GzipCompressor, GzipDecompressor}
+import fs2.io.file.{Files, Path}
+
+for {
+  _ <- Files[IO].readAll(Path("file"))
+    .through(GzipCompressor[IO]().compress)
+    .through(Files[IO].writeAll(Path("file.gz")))
+    .compile
+    .drain
+  _ <- Files[IO].readAll(Path("file.gz"))
+    .through(GzipDecompressor[IO]().decompress)
+    .through(Files[IO].writeAll(Path("file")))
+    .compile
+    .drain
+} yield ()
+```
+
 ## License
 
 This project uses the Apache 2.0 License. See the file called LICENSE.

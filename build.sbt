@@ -13,7 +13,7 @@ val V = new {
   val fs2 = "3.6.1"
   val logbackClassic = "1.4.6"
   val munit = "0.7.29"
-  val munitTaglessFinal = "0.2.0"
+  val munitTaglessFinal = "0.2.1"
   val zstdJni = "1.5.4-2"
 }
 
@@ -39,7 +39,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
 
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
-    "de.lolhens" %%% "munit-tagless-final" % V.munitTaglessFinal % Test,
+    "de.lhns" %%% "munit-tagless-final" % V.munitTaglessFinal % Test,
     "org.scalameta" %%% "munit" % V.munit % Test,
   ),
 
@@ -147,7 +147,6 @@ lazy val zstd = projectMatrix.in(file("zstd"))
     libraryDependencies ++= Seq(
       "co.fs2" %% "fs2-io" % V.fs2,
       "com.github.luben" % "zstd-jni" % V.zstdJni,
-      "org.apache.commons" % "commons-compress" % V.commonsCompress,
     ),
   )
   .jvmPlatform(scalaVersions)

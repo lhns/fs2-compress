@@ -1,19 +1,24 @@
 package de.lhns.fs2.compress
 
 import cats.effect.Async
+import com.github.luben.zstd.{ZstdInputStream, ZstdOutputStream}
 import fs2.Pipe
-import fs2.io.{readInputStream, readOutputStream, toInputStream, writeOutputStream}
-import org.apache.commons.compress.compressors.zstandard.{ZstdCompressorInputStream, ZstdCompressorOutputStream}
+import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
 
-class ZstdCompressor[F[_] : Async](chunkSize: Int) extends Compressor[F] {
+class ZstdCompressor[F[_] : Async](level: Option[Int],
+                                   workers: Option[Int],
+                                   chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       stream
-        .through(writeOutputStream(
-          Async[F].blocking[OutputStream](new ZstdCompressorOutputStream(outputStream))
-        ))
+        .through(writeOutputStream(Async[F].blocking[OutputStream] {
+          val zstdOutputStream = new ZstdOutputStream(outputStream)
+          level.foreach(zstdOutputStream.setLevel)
+          workers.foreach(zstdOutputStream.setWorkers)
+          zstdOutputStream
+        }))
         .compile
         .drain
     }
@@ -21,8 +26,10 @@ class ZstdCompressor[F[_] : Async](chunkSize: Int) extends Compressor[F] {
 }
 
 object ZstdCompressor {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdCompressor[F] =
-    new ZstdCompressor(chunkSize)
+  def apply[F[_] : Async](level: Option[Int] = None,
+                          workers: Option[Int] = None,
+                          chunkSize: Int = Defaults.defaultChunkSize): ZstdCompressor[F] =
+    new ZstdCompressor(level, workers, chunkSize)
 }
 
 class ZstdDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
@@ -31,7 +38,7 @@ class ZstdDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
         readInputStream(
-          Async[F].blocking(new ZstdCompressorInputStream(inputStream)),
+          Async[F].blocking(new ZstdInputStream(inputStream)),
           chunkSize
         )
       }
