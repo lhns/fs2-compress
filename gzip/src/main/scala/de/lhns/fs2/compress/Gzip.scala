@@ -1,14 +1,16 @@
 package de.lhns.fs2.compress
 
-import cats.effect.{Async, Sync}
+import cats.effect.Async
 import fs2.Pipe
-import fs2.io.compression._
+import fs2.compression.Compression
 
 class GzipCompressor[F[_] : Async](deflateLevel: Option[Int],
                                    deflateStrategy: Option[Int],
                                    chunkSize: Int) extends Compressor[F] {
+  private val compression: Compression[F] = Compression.forSync
+
   override def compress: Pipe[F, Byte, Byte] =
-    fs2.compression.Compression[F].gzip(chunkSize, deflateLevel, deflateStrategy)
+    compression.gzip(chunkSize, deflateLevel, deflateStrategy)
 }
 
 object GzipCompressor {
@@ -19,8 +21,10 @@ object GzipCompressor {
 }
 
 class GzipDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
+  private val compression: Compression[F] = Compression.forSync
+
   override def decompress: Pipe[F, Byte, Byte] =
-    fs2.compression.Compression[F].gunzip(chunkSize).andThen(_.flatMap(_.content))
+    compression.gunzip(chunkSize).andThen(_.flatMap(_.content))
 }
 
 object GzipDecompressor {
