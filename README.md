@@ -13,12 +13,12 @@ Integrations for several compression algorithms with [Fs2](https://github.com/ty
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.4.1"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.4.1"
-libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.4.1"
-libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.4.1"
-libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.4.1"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.4.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.5.0"
 ```
 
 ### Example
