@@ -84,7 +84,9 @@ class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F,
 }
 
 object ZipArchiver {
-  def apply[F[_] : Async](method: Int = ZipOutputStream.DEFLATED,
+  def apply[F[_]](implicit instance: ZipArchiver[F]): ZipArchiver[F] = instance
+
+  def make[F[_] : Async](method: Int = ZipOutputStream.DEFLATED,
                           chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F] =
     new ZipArchiver(method, chunkSize)
 }
@@ -129,6 +131,8 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry
 }
 
 object ZipUnarchiver {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): ZipUnarchiver[F] =
+  def apply[F[_]](implicit instance: ZipUnarchiver[F]): ZipUnarchiver[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): ZipUnarchiver[F] =
     new ZipUnarchiver(chunkSize)
 }

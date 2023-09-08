@@ -21,6 +21,8 @@ class BrotliDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
 object BrotliDecompressor {
   def defaultChunkSize: Int = BrotliInputStream.DEFAULT_INTERNAL_BUFFER_SIZE
 
-  def apply[F[_] : Async](chunkSize: Int = defaultChunkSize): BrotliDecompressor[F] =
+  def apply[F[_]](implicit instance: BrotliDecompressor[F]): BrotliDecompressor[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = defaultChunkSize): BrotliDecompressor[F] =
     new BrotliDecompressor(chunkSize)
 }

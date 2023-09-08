@@ -87,7 +87,9 @@ class TarArchiver[F[_] : Async](chunkSize: Int) extends Archiver[F, TarArchiveEn
 }
 
 object TarArchiver {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
+  def apply[F[_]](implicit instance: TarArchiver[F]): TarArchiver[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
     new TarArchiver(chunkSize)
 }
 
@@ -127,6 +129,8 @@ class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, TarArchi
 }
 
 object TarUnarchiver {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
+  def apply[F[_]](implicit instance: TarUnarchiver[F]): TarUnarchiver[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
     new TarUnarchiver(chunkSize)
 }

@@ -7,13 +7,16 @@ import fs2.{Chunk, Stream}
 import java.util
 
 class ZipRoundTripSuite extends IOSuite {
+  implicit val zipArchiver: ZipArchiver[IO] = ZipArchiver.make()
+  implicit val zipUnarchiver: ZipUnarchiver[IO] = ZipUnarchiver.make()
+
   test("zip round trip") {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO](), "test").compress)
-        .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]()).decompress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile
         .lastOrError

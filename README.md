@@ -13,12 +13,12 @@ Integrations for several compression algorithms with [Fs2](https://github.com/ty
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "0.5.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "0.5.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "0.5.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "0.5.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "0.5.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.5.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "1.0.0"
 ```
 
 ### Example
@@ -26,16 +26,20 @@ libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "0.5.0"
 ```scala
 import cats.effect.IO
 import de.lhns.fs2.compress.{GzipCompressor, GzipDecompressor}
+import fs2.io.compression._
 import fs2.io.file.{Files, Path}
+
+implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make()
+implicit val gzipDecompressor: GzipDecompressor[IO] = GzipDecompressor.make()
 
 for {
   _ <- Files[IO].readAll(Path("file"))
-    .through(GzipCompressor[IO]().compress)
+    .through(GzipCompressor[IO].compress)
     .through(Files[IO].writeAll(Path("file.gz")))
     .compile
     .drain
   _ <- Files[IO].readAll(Path("file.gz"))
-    .through(GzipDecompressor[IO]().decompress)
+    .through(GzipDecompressor[IO].decompress)
     .through(Files[IO].writeAll(Path("file")))
     .compile
     .drain

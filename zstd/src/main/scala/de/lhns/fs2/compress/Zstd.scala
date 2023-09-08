@@ -26,7 +26,9 @@ class ZstdCompressor[F[_] : Async](level: Option[Int],
 }
 
 object ZstdCompressor {
-  def apply[F[_] : Async](level: Option[Int] = None,
+  def apply[F[_]](implicit instance: ZstdCompressor[F]): ZstdCompressor[F] = instance
+
+  def make[F[_] : Async](level: Option[Int] = None,
                           workers: Option[Int] = None,
                           chunkSize: Int = Defaults.defaultChunkSize): ZstdCompressor[F] =
     new ZstdCompressor(level, workers, chunkSize)
@@ -46,6 +48,8 @@ class ZstdDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
 }
 
 object ZstdDecompressor {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdDecompressor[F] =
+  def apply[F[_]](implicit instance: ZstdDecompressor[F]): ZstdDecompressor[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdDecompressor[F] =
     new ZstdDecompressor(chunkSize)
 }

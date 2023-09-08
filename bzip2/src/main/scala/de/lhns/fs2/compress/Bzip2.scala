@@ -27,10 +27,12 @@ class Bzip2Compressor[F[_] : Async](blockSize: Option[Int], chunkSize: Int) exte
 }
 
 object Bzip2Compressor {
-  def apply[F[_] : Async](
-                           blockSize: Option[Int] = None,
-                           chunkSize: Int = Defaults.defaultChunkSize
-                         ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
+  def apply[F[_]](implicit instance: Bzip2Compressor[F]): Bzip2Compressor[F] = instance
+
+  def make[F[_] : Async](
+                          blockSize: Option[Int] = None,
+                          chunkSize: Int = Defaults.defaultChunkSize
+                        ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
 }
 
 class Bzip2Decompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
@@ -47,6 +49,8 @@ class Bzip2Decompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
 }
 
 object Bzip2Decompressor {
-  def apply[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
+  def apply[F[_]](implicit instance: Bzip2Decompressor[F]): Bzip2Decompressor[F] = instance
+
+  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
     new Bzip2Decompressor(chunkSize)
 }
