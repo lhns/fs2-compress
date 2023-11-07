@@ -14,6 +14,7 @@ val V = new {
   val logbackClassic = "1.4.11"
   val munit = "0.7.29"
   val munitTaglessFinal = "0.2.1"
+  val zip4j = "2.11.5"
   val zstdJni = "1.5.5-10"
 }
 
@@ -82,6 +83,7 @@ lazy val root: Project =
     .aggregate(core.projectRefs: _*)
     .aggregate(gzip.projectRefs: _*)
     .aggregate(zip.projectRefs: _*)
+    .aggregate(zip4j.projectRefs: _*)
     .aggregate(tar.projectRefs: _*)
     .aggregate(zstd.projectRefs: _*)
     .aggregate(bzip2.projectRefs: _*)
@@ -125,6 +127,19 @@ lazy val zip = projectMatrix.in(file("zip"))
   )
   .jvmPlatform(scalaVersions)
 
+lazy val zip4j = projectMatrix.in(file("zip4j"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-zip4j",
+
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+      "net.lingala.zip4j" % "zip4j" % V.zip4j,
+    ),
+  )
+  .jvmPlatform(scalaVersions)
+
 lazy val tar = projectMatrix.in(file("tar"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
@@ -145,7 +160,7 @@ lazy val zstd = projectMatrix.in(file("zstd"))
     name := "fs2-compress-zstd",
 
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io" % V.fs2,
+      "co.fs2" %%% "fs2-io" % V.fs2,
       "com.github.luben" % "zstd-jni" % V.zstdJni,
     ),
   )
@@ -158,7 +173,7 @@ lazy val bzip2 = projectMatrix.in(file("bzip2"))
     name := "fs2-compress-bzip2",
 
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io" % V.fs2,
+      "co.fs2" %%% "fs2-io" % V.fs2,
       "org.apache.commons" % "commons-compress" % V.commonsCompress,
     ),
   )
@@ -171,7 +186,7 @@ lazy val brotli = projectMatrix.in(file("brotli"))
     name := "fs2-compress-brotli",
 
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io" % V.fs2,
+      "co.fs2" %%% "fs2-io" % V.fs2,
       "org.brotli" % "dec" % V.brotli,
     ),
   )

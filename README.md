@@ -15,6 +15,7 @@ Integrations for several compression algorithms with [Fs2](https://github.com/ty
 ```sbt
 libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "1.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "1.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip4j" % "1.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "1.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "1.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "1.0.0"
