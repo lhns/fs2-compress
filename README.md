@@ -1,5 +1,6 @@
 # fs2-compress
 
+[![Typelevel Affiliate Project](https://img.shields.io/badge/typelevel-affiliate%20project-FFB4B5.svg)](https://typelevel.org/projects/)
 [![build](https://github.com/lhns/fs2-compress/actions/workflows/build.yml/badge.svg)](https://github.com/lhns/fs2-compress/actions/workflows/build.yml)
 [![Release Notes](https://img.shields.io/github/release/lhns/fs2-compress.svg?maxAge=3600)](https://github.com/lhns/fs2-compress/releases/latest)
 [![Maven Central](https://img.shields.io/maven-central/v/de.lhns/fs2-compress_2.13)](https://search.maven.org/artifact/de.lhns/fs2-compress_2.13)
