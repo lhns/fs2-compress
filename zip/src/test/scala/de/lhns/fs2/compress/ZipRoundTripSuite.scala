@@ -15,7 +15,7 @@ class ZipRoundTripSuite extends IOSuite {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test", expected.length).compress)
         .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile

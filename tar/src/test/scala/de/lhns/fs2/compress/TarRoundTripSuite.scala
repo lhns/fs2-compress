@@ -15,7 +15,7 @@ class TarRoundTripSuite extends IOSuite {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(TarArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileCompressor.forName(TarArchiver[IO], "test", expected.length).compress)
         .through(ArchiveSingleFileDecompressor(TarUnarchiver[IO]).decompress)
         .chunkAll
         .compile

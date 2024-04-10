@@ -2,53 +2,67 @@ package de.lhns.fs2.compress
 
 import cats.effect.{Async, Deferred, Resource}
 import cats.syntax.functor._
+import de.lhns.fs2.compress.Zip.ZipEntry
 import fs2.io._
 import fs2.{Pipe, Stream}
 
 import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.nio.file.attribute.FileTime
 import java.time.Instant
-import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
+import java.util.zip.{ZipInputStream, ZipOutputStream, ZipEntry => JZipEntry}
 
 object Zip {
-  implicit val zipArchiveEntry: ArchiveEntry[ZipEntry] = new ArchiveEntry[ZipEntry] {
-    override def name(entry: ZipEntry): String = entry.getName
-
-    override def size(entry: ZipEntry): Option[Long] = Some(entry.getSize).filterNot(_ == -1)
-
-    override def isDirectory(entry: ZipEntry): Boolean = entry.isDirectory
-
-    override def lastModified(entry: ZipEntry): Option[Instant] =
-      Option(entry.getLastModifiedTime).map(_.toInstant)
+  trait ZipEntry[Size[A] <: Option[A]] extends ArchiveEntry[Size] {
+    def underlying: JZipEntry
   }
 
+  object ZipEntry {
+    def fromJZipEntry(entry: JZipEntry): ZipEntry[Option] = new ZipEntry[Option] {
+      override def underlying: JZipEntry =
+        new JZipEntry(entry)
 
-  implicit val zipArchiveEntryConstructor: ArchiveEntryConstructor[ZipEntry] = new ArchiveEntryConstructor[ZipEntry] {
-    override def apply(
-                        name: String,
-                        size: Option[Long],
-                        isDirectory: Boolean,
-                        lastModified: Option[Instant]
-                      ): ZipEntry = {
-      val fileOrDirName = name match {
-        case name if isDirectory && !name.endsWith("/") => name + "/"
-        case name if !isDirectory && name.endsWith("/") => name.dropRight(1)
-        case name => name
+      override def name: String =
+        entry.getName
+
+      override def size: Option[Long] =
+        Some(entry.getSize).filterNot(_ == -1)
+
+      override def isDirectory: Boolean =
+        entry.isDirectory
+
+      override def lastModified: Option[Instant] =
+        Option(entry.getLastModifiedTime).map(_.toInstant)
+    }
+
+    def apply[Size[A] <: Option[A]](entry: ArchiveEntry[Size]): ZipEntry[Size] = entry match {
+      case zipEntry: ZipEntry[Size] => zipEntry
+      case _ => new ZipEntry[Size] {
+        override def underlying: JZipEntry = {
+          val fileOrDirName = name match {
+            case name if isDirectory && !name.endsWith("/") => name + "/"
+            case name if !isDirectory && name.endsWith("/") => name.dropRight(1)
+            case name => name
+          }
+          val entry = new JZipEntry(fileOrDirName)
+          size.foreach(entry.setSize)
+          lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
+          entry
+        }
+
+        override def name: String = entry.name
+
+        override def size: Size[Long] = entry.size
+
+        override def isDirectory: Boolean = entry.isDirectory
+
+        override def lastModified: Option[Instant] = entry.lastModified
       }
-      val entry = new ZipEntry(fileOrDirName)
-      size.foreach(entry.setSize)
-      lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
-      entry
     }
   }
 }
 
-class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F, ZipEntry] {
-  override def archiveEntryConstructor: ArchiveEntryConstructor[ZipEntry] = Zip.zipArchiveEntryConstructor
-
-  override def archiveEntry: ArchiveEntry[ZipEntry] = Zip.zipArchiveEntry
-
-  def archive: Pipe[F, (ZipEntry, Stream[F, Byte]), Byte] = { stream =>
+class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F, Some] {
+  def archive: Pipe[F, (ArchiveEntry[Some], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
         val zipOutputStream = new ZipOutputStream(outputStream)
@@ -59,22 +73,18 @@ class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F,
       ).use { zipOutputStream =>
         stream
           .flatMap {
-            case (zipEntry, stream) =>
-              stream
-                .chunkAll
-                .flatMap { chunk =>
-                  zipEntry.setSize(chunk.size)
-                  val stream = Stream.chunk(chunk).covary[F]
-                  Stream.resource(Resource.make(
-                    Async[F].blocking(zipOutputStream.putNextEntry(zipEntry))
-                  )(_ =>
-                    Async[F].blocking(zipOutputStream.closeEntry())
-                  ))
-                    .flatMap(_ =>
-                      stream
-                        .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false))
-                    )
-                }
+            case (archiveEntry, stream) =>
+              def entry = ZipEntry(archiveEntry).underlying
+
+              Stream.resource(Resource.make(
+                  Async[F].blocking(zipOutputStream.putNextEntry(entry))
+                )(_ =>
+                  Async[F].blocking(zipOutputStream.closeEntry())
+                ))
+                .flatMap(_ =>
+                  stream
+                    .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false))
+                )
           }
           .compile
           .drain
@@ -87,14 +97,12 @@ object ZipArchiver {
   def apply[F[_]](implicit instance: ZipArchiver[F]): ZipArchiver[F] = instance
 
   def make[F[_] : Async](method: Int = ZipOutputStream.DEFLATED,
-                          chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F] =
+                         chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F] =
     new ZipArchiver(method, chunkSize)
 }
 
-class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry] {
-  override def archiveEntry: ArchiveEntry[ZipEntry] = Zip.zipArchiveEntry
-
-  def unarchive: Pipe[F, Byte, (ZipEntry, Stream[F, Byte])] = { stream =>
+class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry, Option] {
+  def unarchive: Pipe[F, Byte, (ZipEntry[Option], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
@@ -105,14 +113,15 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry
         ))
       }
       .flatMap { zipInputStream =>
-        def readEntries: Stream[F, (ZipEntry, Stream[F, Byte])] =
+        def readEntries: Stream[F, (ZipEntry[Option], Stream[F, Byte])] =
           Stream.resource(Resource.make(
-            Async[F].blocking(Option(zipInputStream.getNextEntry))
-          )(_ =>
-            Async[F].blocking(zipInputStream.closeEntry())
-          ))
+              Async[F].blocking(Option(zipInputStream.getNextEntry))
+            )(_ =>
+              Async[F].blocking(zipInputStream.closeEntry())
+            ))
             .flatMap(Stream.fromOption[F](_))
-            .flatMap { zipEntry =>
+            .flatMap { entry =>
+              val zipEntry = ZipEntry.fromJZipEntry(entry)
               Stream.eval(Deferred[F, Unit])
                 .flatMap { deferred =>
                   Stream.emit(
