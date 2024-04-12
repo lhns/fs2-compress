@@ -14,7 +14,7 @@ import java.nio.file.attribute.FileTime
 
 object Tar {
   // The underlying information is lost if the isDirectory attribute of an ArchiveEntry is changed
-  implicit val tarArchiveEntryUnderlying: ArchiveEntryToUnderlying[TarArchiveEntry] = new ArchiveEntryToUnderlying[TarArchiveEntry] {
+  implicit val tarArchiveEntryToUnderlying: ArchiveEntryToUnderlying[TarArchiveEntry] = new ArchiveEntryToUnderlying[TarArchiveEntry] {
     override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): TarArchiveEntry = {
       val fileOrDirName = entry.name match {
         case name if entry.isDirectory && !name.endsWith("/") => name + "/"
