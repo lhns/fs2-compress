@@ -15,7 +15,37 @@ class Zip4JRoundTripSuite extends IOSuite {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream.chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(Zip4JArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileCompressor.forName(Zip4JArchiver[IO], "test", expected.length).compress)
+        .through(ArchiveSingleFileDecompressor(Zip4JUnarchiver[IO]).decompress)
+        .chunkAll
+        .compile
+        .lastOrError
+        .map(_.toArray)
+      _ = assert(util.Arrays.equals(expected, obtained))
+    } yield ()
+  }
+
+  test("zip round trip wrong size".fail) {
+    for {
+      random <- Random.scalaUtilRandom[IO]
+      expected <- random.nextBytes(1024 * 1024)
+      obtained <- Stream.chunk(Chunk.array(expected))
+        .through(ArchiveSingleFileCompressor.forName(Zip4JArchiver[IO], "test", expected.length - 1).compress)
+        .through(ArchiveSingleFileDecompressor(Zip4JUnarchiver[IO]).decompress)
+        .chunkAll
+        .compile
+        .lastOrError
+        .map(_.toArray)
+      _ = assert(util.Arrays.equals(expected, obtained))
+    } yield ()
+  }
+
+  test("zip round trip wrong size 2".fail) {
+    for {
+      random <- Random.scalaUtilRandom[IO]
+      expected <- random.nextBytes(1024 * 1024)
+      obtained <- Stream.chunk(Chunk.array(expected))
+        .through(ArchiveSingleFileCompressor.forName(Zip4JArchiver[IO], "test", expected.length + 1).compress)
         .through(ArchiveSingleFileDecompressor(Zip4JUnarchiver[IO]).decompress)
         .chunkAll
         .compile

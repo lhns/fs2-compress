@@ -11,8 +11,8 @@ trait Archiver[F[_], Size[A] <: Option[A]] {
 object Archiver {
   def checkUncompressedSize[F[_] : Async, Size[A] <: Option[A]]: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), (ArchiveEntry[Size, Any], Stream[F, Byte])] =
     _.map { case (entry, bytes) =>
-      val newBytes = entry.uncompressedSize match {
-        case _: None.type => bytes
+      val newBytes = (entry.uncompressedSize: Option[Long]) match {
+        case None => bytes
         case Some(expectedSize: Long) =>
           Stream.eval(Ref[F].of(0L)).flatMap { sizeRef =>
             bytes.chunks.evalTap(chunk => sizeRef.update(_ + chunk.size)).unchunks ++
