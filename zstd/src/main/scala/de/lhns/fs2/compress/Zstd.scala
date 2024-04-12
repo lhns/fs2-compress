@@ -7,9 +7,9 @@ import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
 
-class ZstdCompressor[F[_] : Async](level: Option[Int],
-                                   workers: Option[Int],
-                                   chunkSize: Int) extends Compressor[F] {
+class ZstdCompressor[F[_] : Async] private(level: Option[Int],
+                                           workers: Option[Int],
+                                           chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       stream
@@ -29,12 +29,12 @@ object ZstdCompressor {
   def apply[F[_]](implicit instance: ZstdCompressor[F]): ZstdCompressor[F] = instance
 
   def make[F[_] : Async](level: Option[Int] = None,
-                          workers: Option[Int] = None,
-                          chunkSize: Int = Defaults.defaultChunkSize): ZstdCompressor[F] =
+                         workers: Option[Int] = None,
+                         chunkSize: Int = Defaults.defaultChunkSize): ZstdCompressor[F] =
     new ZstdCompressor(level, workers, chunkSize)
 }
 
-class ZstdDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
+class ZstdDecompressor[F[_] : Async] private(chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))

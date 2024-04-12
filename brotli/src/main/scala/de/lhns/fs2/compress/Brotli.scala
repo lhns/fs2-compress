@@ -5,7 +5,7 @@ import fs2.Pipe
 import fs2.io._
 import org.brotli.dec.BrotliInputStream
 
-class BrotliDecompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
+class BrotliDecompressor[F[_] : Async] private(chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(toInputStream[F])

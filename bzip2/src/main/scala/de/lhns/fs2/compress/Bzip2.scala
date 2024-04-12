@@ -7,7 +7,8 @@ import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream
 
 import java.io.{BufferedInputStream, OutputStream}
 
-class Bzip2Compressor[F[_] : Async](blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
+class Bzip2Compressor[F[_] : Async] private(blockSize: Option[Int],
+                                            chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       stream
@@ -35,7 +36,7 @@ object Bzip2Compressor {
                         ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
 }
 
-class Bzip2Decompressor[F[_] : Async](chunkSize: Int) extends Decompressor[F] {
+class Bzip2Decompressor[F[_] : Async] private(chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))

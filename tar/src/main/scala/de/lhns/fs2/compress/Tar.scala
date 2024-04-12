@@ -57,7 +57,7 @@ object Tar {
   }
 }
 
-class TarArchiver[F[_] : Async](chunkSize: Int) extends Archiver[F, Some] {
+class TarArchiver[F[_] : Async] private(chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
@@ -94,7 +94,7 @@ object TarArchiver {
     new TarArchiver(chunkSize)
 }
 
-class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
+class TarUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
   override def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))

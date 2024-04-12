@@ -2,10 +2,10 @@ package de.lhns.fs2.compress
 
 import fs2.{Pipe, Stream}
 
-class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]](
-                                                               archiver: Archiver[F, Size],
-                                                               entry: ArchiveEntry[Size, Any]
-                                                             ) extends Compressor[F] {
+class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]] private(
+                                                                       archiver: Archiver[F, Size],
+                                                                       entry: ArchiveEntry[Size, Any]
+                                                                     ) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream.emit((entry, stream))
       .through(archiver.archive)
@@ -26,9 +26,9 @@ object ArchiveSingleFileCompressor {
     new ArchiveSingleFileCompressor(archiver, ArchiveEntry(name, Some(size)))
 }
 
-class ArchiveSingleFileDecompressor[
-  F[_], Size[A] <: Option[A], Underlying
-](unarchiver: Unarchiver[F, Size, Underlying]) extends Decompressor[F] {
+class ArchiveSingleFileDecompressor[F[_], Size[A] <: Option[A], Underlying] private(
+                                                                                     unarchiver: Unarchiver[F, Size, Underlying]
+                                                                                   ) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(unarchiver.unarchive)

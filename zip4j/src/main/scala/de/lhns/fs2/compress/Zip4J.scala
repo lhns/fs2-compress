@@ -61,7 +61,8 @@ object Zip4J {
   }
 }
 
-class Zip4JArchiver[F[_] : Async](password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
+class Zip4JArchiver[F[_] : Async] private(password: => Option[String],
+                                          chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
@@ -101,7 +102,7 @@ object Zip4JArchiver {
     new Zip4JArchiver(password, chunkSize)
 }
 
-class Zip4JUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, LocalFileHeader] {
+class Zip4JUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F, Option, LocalFileHeader] {
   def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
