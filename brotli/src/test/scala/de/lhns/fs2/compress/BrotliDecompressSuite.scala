@@ -15,7 +15,8 @@ class BrotliDecompressSuite extends IOSuite {
     val compressedBase64 = "iwWAaGVsbG8gd29ybGQhAw=="
     val compressed = Base64.getDecoder.decode(compressedBase64)
     for {
-      obtained <- Stream.chunk(Chunk.array(compressed))
+      obtained <- Stream
+        .chunk(Chunk.array(compressed))
         .through(BrotliDecompressor[IO].decompress)
         .chunkAll
         .compile

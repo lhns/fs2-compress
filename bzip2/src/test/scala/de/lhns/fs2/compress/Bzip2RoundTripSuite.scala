@@ -14,7 +14,8 @@ class Bzip2RoundTripSuite extends IOSuite {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
-      obtained <- Stream.chunk(Chunk.array(expected))
+      obtained <- Stream
+        .chunk(Chunk.array(expected))
         .through(Bzip2Compressor[IO].compress)
         .through(Bzip2Decompressor[IO].decompress)
         .chunkAll

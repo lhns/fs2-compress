@@ -7,20 +7,21 @@ import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream
 
 import java.io.{BufferedInputStream, OutputStream}
 
-class Bzip2Compressor[F[_] : Async] private(blockSize: Option[Int],
-                                            chunkSize: Int) extends Compressor[F] {
+class Bzip2Compressor[F[_] : Async] private(blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       stream
-        .through(writeOutputStream(
-          Async[F].blocking[OutputStream](
-            blockSize.fold(
-              new BZip2CompressorOutputStream(outputStream)
-            )(
-              new BZip2CompressorOutputStream(outputStream, _)
+        .through(
+          writeOutputStream(
+            Async[F].blocking[OutputStream](
+              blockSize.fold(
+                new BZip2CompressorOutputStream(outputStream)
+              )(
+                new BZip2CompressorOutputStream(outputStream, _)
+              )
             )
           )
-        ))
+        )
         .compile
         .drain
     }
@@ -39,7 +40,8 @@ object Bzip2Compressor {
 class Bzip2Decompressor[F[_] : Async] private(chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
-      .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
+      .through(toInputStream[F])
+      .map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
         readInputStream(
           Async[F].blocking(new BZip2CompressorInputStream(inputStream)),

@@ -15,11 +15,13 @@ case class ArchiveEntry[+Size[A] <: Option[A], +Underlying](
                                                            ) {
   def withName(name: String): ArchiveEntry[Size, Underlying] = copy(name = name)
 
-  def withUncompressedSize[S[A] <: Option[A]](uncompressedSize: S[Long]): ArchiveEntry[S, Underlying] = copy(uncompressedSize = uncompressedSize)
+  def withUncompressedSize[S[A] <: Option[A]](uncompressedSize: S[Long]): ArchiveEntry[S, Underlying] =
+    copy(uncompressedSize = uncompressedSize)
 
   def withIsDirectory(isDirectory: Boolean): ArchiveEntry[Size, Underlying] = copy(isDirectory = isDirectory)
 
-  def withLastModified(lastModified: Option[Instant]): ArchiveEntry[Size, Underlying] = copy(lastModified = lastModified)
+  def withLastModified(lastModified: Option[Instant]): ArchiveEntry[Size, Underlying] =
+    copy(lastModified = lastModified)
 
   def withUnderlying[U](underlying: U): ArchiveEntry[Size, U] = copy(underlying = underlying)
 
@@ -28,7 +30,9 @@ case class ArchiveEntry[+Size[A] <: Option[A], +Underlying](
 }
 
 object ArchiveEntry {
-  def fromUnderlying[Size[A] <: Option[A], U](underlying: U)(implicit U: ArchiveEntryFromUnderlying[Size, U]): ArchiveEntry[Option, U] =
+  def fromUnderlying[Size[A] <: Option[A], U](underlying: U)(implicit
+                                                             U: ArchiveEntryFromUnderlying[Size, U]
+  ): ArchiveEntry[Option, U] =
     U.archiveEntry(underlying)
 
   trait ArchiveEntryToUnderlying[+Underlying] {

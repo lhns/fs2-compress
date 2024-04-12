@@ -7,7 +7,8 @@ class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]] private(
                                                                        entry: ArchiveEntry[Size, Any]
                                                                      ) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
-    Stream.emit((entry, stream))
+    Stream
+      .emit((entry, stream))
       .through(archiver.archive)
   }
 }
@@ -42,6 +43,8 @@ class ArchiveSingleFileDecompressor[F[_], Size[A] <: Option[A], Underlying] priv
 }
 
 object ArchiveSingleFileDecompressor {
-  def apply[F[_], Size[A] <: Option[A], Underlying](unarchiver: Unarchiver[F, Size, Underlying]): ArchiveSingleFileDecompressor[F, Size, Underlying] =
+  def apply[F[_], Size[A] <: Option[A], Underlying](
+                                                     unarchiver: Unarchiver[F, Size, Underlying]
+                                                   ): ArchiveSingleFileDecompressor[F, Size, Underlying] =
     new ArchiveSingleFileDecompressor(unarchiver)
 }
