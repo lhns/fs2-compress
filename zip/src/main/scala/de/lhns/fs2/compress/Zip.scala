@@ -12,10 +12,11 @@ import java.nio.file.attribute.FileTime
 import java.util.zip.{ZipInputStream, ZipOutputStream, ZipEntry => JZipEntry}
 
 object Zip {
+  // The underlying information is lost if the name or isDirectory attribute of an ArchiveEntry is changed
   implicit val zipArchiveEntryToUnderlying: ArchiveEntryToUnderlying[JZipEntry] = new ArchiveEntryToUnderlying[JZipEntry] {
-    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): JZipEntry =
-      underlying match {
-        case zipEntry: JZipEntry =>
+    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): JZipEntry = {
+      val zipEntry = underlying match {
+        case zipEntry: JZipEntry if zipEntry.getName == entry.name && zipEntry.isDirectory == entry.isDirectory =>
           new JZipEntry(zipEntry)
 
         case _ =>
@@ -24,13 +25,15 @@ object Zip {
             case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
             case name => name
           }
-          val zipEntry = new JZipEntry(fileOrDirName)
-          entry.uncompressedSize.foreach(zipEntry.setSize)
-          entry.lastModified.map(FileTime.from).foreach(zipEntry.setLastModifiedTime)
-          entry.lastAccess.map(FileTime.from).foreach(zipEntry.setLastAccessTime)
-          entry.creation.map(FileTime.from).foreach(zipEntry.setCreationTime)
-          zipEntry
+          new JZipEntry(fileOrDirName)
       }
+
+      entry.uncompressedSize.foreach(zipEntry.setSize)
+      entry.lastModified.map(FileTime.from).foreach(zipEntry.setLastModifiedTime)
+      entry.lastAccess.map(FileTime.from).foreach(zipEntry.setLastAccessTime)
+      entry.creation.map(FileTime.from).foreach(zipEntry.setCreationTime)
+      zipEntry
+    }
   }
 
   implicit val zipArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, JZipEntry] = new ArchiveEntryFromUnderlying[Option, JZipEntry] {

@@ -13,25 +13,34 @@ import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.nio.file.attribute.FileTime
 
 object Tar {
+  // The underlying information is lost if the isDirectory attribute of an ArchiveEntry is changed
   implicit val tarArchiveEntryUnderlying: ArchiveEntryToUnderlying[TarArchiveEntry] = new ArchiveEntryToUnderlying[TarArchiveEntry] {
-    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): TarArchiveEntry =
-      underlying match {
-        case tarEntry: TarArchiveEntry =>
-          tarEntry // TODO: defensive copy
+    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): TarArchiveEntry = {
+      val fileOrDirName = entry.name match {
+        case name if entry.isDirectory && !name.endsWith("/") => name + "/"
+        case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
+        case name => name
+      }
+
+      val tarEntry = underlying match {
+        case tarEntry: TarArchiveEntry if tarEntry.isDirectory == entry.isDirectory =>
+          // copy TarArchiveEntry
+          val buffer = new Array[Byte](512) // TarArchiveOutputStream.RECORD_SIZE
+          tarEntry.writeEntryHeader(buffer)
+          val newTarEntry = new TarArchiveEntry(buffer)
+          newTarEntry.setName(fileOrDirName)
+          newTarEntry
 
         case _ =>
-          val fileOrDirName = entry.name match {
-            case name if entry.isDirectory && !name.endsWith("/") => name + "/"
-            case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
-            case name => name
-          }
-          val tarEntry = new TarArchiveEntry(fileOrDirName)
-          entry.uncompressedSize.foreach(tarEntry.setSize)
-          entry.lastModified.map(FileTime.from).foreach(tarEntry.setLastModifiedTime)
-          entry.lastAccess.map(FileTime.from).foreach(tarEntry.setLastAccessTime)
-          entry.creation.map(FileTime.from).foreach(tarEntry.setCreationTime)
-          tarEntry
+          new TarArchiveEntry(fileOrDirName)
       }
+
+      entry.uncompressedSize.foreach(tarEntry.setSize)
+      entry.lastModified.map(FileTime.from).foreach(tarEntry.setLastModifiedTime)
+      entry.lastAccess.map(FileTime.from).foreach(tarEntry.setLastAccessTime)
+      entry.creation.map(FileTime.from).foreach(tarEntry.setCreationTime)
+      tarEntry
+    }
   }
 
   implicit val tarArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, TarArchiveEntry] = new ArchiveEntryFromUnderlying[Option, TarArchiveEntry] {
