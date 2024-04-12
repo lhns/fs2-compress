@@ -3,6 +3,7 @@ package de.lhns.fs2.compress
 import cats.effect.{Async, Deferred, Resource}
 import cats.syntax.functor._
 import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
+import de.lhns.fs2.compress.Archiver.checkUncompressedSize
 import de.lhns.fs2.compress.Zip._
 import fs2.io._
 import fs2.{Pipe, Stream}
@@ -61,6 +62,7 @@ class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F,
         Async[F].blocking(zipOutputStream.close())
       ).use { zipOutputStream =>
         stream
+          .through(checkUncompressedSize)
           .flatMap {
             case (archiveEntry, stream) =>
               def entry = archiveEntry.underlying[ZipEntry]
