@@ -15,7 +15,6 @@ import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.time.Instant
 
 object Zip4J {
-  // The underlying information is lost if the name or isDirectory attribute of an ArchiveEntry is changed
   implicit val zip4jArchiveEntryToUnderlying: ArchiveEntryToUnderlying[ZipParameters] = new ArchiveEntryToUnderlying[ZipParameters] {
     override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): ZipParameters = {
       val zipEntry = underlying match {
