@@ -1,34 +1,41 @@
 package de.lhns.fs2.compress
 
+import de.lhns.fs2.compress.ArchiveEntry.ArchiveEntryToUnderlying
+
 import java.time.Instant
 
-trait ArchiveEntry[+Size[A] <: Option[A]] {
-  def name: String
+case class ArchiveEntry[+Size[A] <: Option[A], +Underlying](
+                                                             name: String,
+                                                             uncompressedSize: Size[Long] = None: Option[Long],
+                                                             isDirectory: Boolean = false,
+                                                             lastModified: Option[Instant] = None,
+                                                             lastAccess: Option[Instant] = None,
+                                                             creation: Option[Instant] = None,
+                                                             private val underlying: Underlying = ()
+                                                           ) {
+  def withName(name: String): ArchiveEntry[Size, Underlying] = copy(name = name)
 
-  def size: Size[Long]
+  def withUncompressedSize[S[A] <: Option[A]](uncompressedSize: S[Long]): ArchiveEntry[S, Underlying] = copy(uncompressedSize = uncompressedSize)
 
-  def isDirectory: Boolean
+  def withIsDirectory(isDirectory: Boolean): ArchiveEntry[Size, Underlying] = copy(isDirectory = isDirectory)
 
-  def lastModified: Option[Instant]
+  def withLastModified(lastModified: Option[Instant]): ArchiveEntry[Size, Underlying] = copy(lastModified = lastModified)
+
+  def withUnderlying[U](underlying: U): ArchiveEntry[Size, U] = copy(underlying = underlying)
+
+  def underlying[U](implicit U: ArchiveEntryToUnderlying[U]): U =
+    U.underlying(this, underlying)
 }
 
 object ArchiveEntry {
-  def apply[Size[A] <: Option[A]](
-             name: String,
-             size: Size[Long] = None: Option[Long],
-             isDirectory: Boolean = false,
-             lastModified: Option[Instant] = None
-                                 ): ArchiveEntry[Size] = {
-    val _name = name
-    val _size = size
-    val _isDirectory = isDirectory
-    val _lastModified = lastModified
+  def fromUnderlying[Size[A] <: Option[A], U](underlying: U)(implicit U: ArchiveEntryFromUnderlying[Size, U]): ArchiveEntry[Option, U] =
+    U.archiveEntry(underlying)
 
-    new ArchiveEntry[Size] {
-      override val name: String = _name
-      override val size: Size[Long] = _size
-      override val isDirectory: Boolean = _isDirectory
-      override val lastModified: Option[Instant] = _lastModified
-    }
+  trait ArchiveEntryToUnderlying[+Underlying] {
+    def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): Underlying
+  }
+
+  trait ArchiveEntryFromUnderlying[+Size[A] <: Option[A], Underlying] {
+    def archiveEntry(underlying: Underlying): ArchiveEntry[Size, Underlying]
   }
 }

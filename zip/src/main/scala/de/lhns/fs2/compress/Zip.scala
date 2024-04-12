@@ -2,67 +2,53 @@ package de.lhns.fs2.compress
 
 import cats.effect.{Async, Deferred, Resource}
 import cats.syntax.functor._
-import de.lhns.fs2.compress.Zip.ZipEntry
+import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
+import de.lhns.fs2.compress.Zip._
 import fs2.io._
 import fs2.{Pipe, Stream}
 
 import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.nio.file.attribute.FileTime
-import java.time.Instant
 import java.util.zip.{ZipInputStream, ZipOutputStream, ZipEntry => JZipEntry}
 
 object Zip {
-  trait ZipEntry[Size[A] <: Option[A]] extends ArchiveEntry[Size] {
-    def underlying: JZipEntry
-  }
+  implicit val zipArchiveEntryToUnderlying: ArchiveEntryToUnderlying[JZipEntry] = new ArchiveEntryToUnderlying[JZipEntry] {
+    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): JZipEntry =
+      underlying match {
+        case zipEntry: JZipEntry =>
+          new JZipEntry(zipEntry)
 
-  object ZipEntry {
-    def fromJZipEntry(entry: JZipEntry): ZipEntry[Option] = new ZipEntry[Option] {
-      override def underlying: JZipEntry =
-        new JZipEntry(entry)
-
-      override def name: String =
-        entry.getName
-
-      override def size: Option[Long] =
-        Some(entry.getSize).filterNot(_ == -1)
-
-      override def isDirectory: Boolean =
-        entry.isDirectory
-
-      override def lastModified: Option[Instant] =
-        Option(entry.getLastModifiedTime).map(_.toInstant)
-    }
-
-    def apply[Size[A] <: Option[A]](entry: ArchiveEntry[Size]): ZipEntry[Size] = entry match {
-      case zipEntry: ZipEntry[Size] => zipEntry
-      case _ => new ZipEntry[Size] {
-        override def underlying: JZipEntry = {
-          val fileOrDirName = name match {
-            case name if isDirectory && !name.endsWith("/") => name + "/"
-            case name if !isDirectory && name.endsWith("/") => name.dropRight(1)
+        case _ =>
+          val fileOrDirName = entry.name match {
+            case name if entry.isDirectory && !name.endsWith("/") => name + "/"
+            case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
             case name => name
           }
-          val entry = new JZipEntry(fileOrDirName)
-          size.foreach(entry.setSize)
-          lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
-          entry
-        }
-
-        override def name: String = entry.name
-
-        override def size: Size[Long] = entry.size
-
-        override def isDirectory: Boolean = entry.isDirectory
-
-        override def lastModified: Option[Instant] = entry.lastModified
+          val zipEntry = new JZipEntry(fileOrDirName)
+          entry.uncompressedSize.foreach(zipEntry.setSize)
+          entry.lastModified.map(FileTime.from).foreach(zipEntry.setLastModifiedTime)
+          entry.lastAccess.map(FileTime.from).foreach(zipEntry.setLastAccessTime)
+          entry.creation.map(FileTime.from).foreach(zipEntry.setCreationTime)
+          zipEntry
       }
-    }
+  }
+
+  implicit val zipArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, JZipEntry] = new ArchiveEntryFromUnderlying[Option, JZipEntry] {
+    override def archiveEntry(underlying: JZipEntry): ArchiveEntry[Option, JZipEntry] =
+      ArchiveEntry(
+        name = underlying.getName,
+        isDirectory = underlying.isDirectory,
+        uncompressedSize = Some(underlying.getSize).filterNot(_ == -1),
+        lastModified = Option(underlying.getLastModifiedTime).map(_.toInstant),
+        lastAccess = Option(underlying.getLastAccessTime).map(_.toInstant),
+        creation = Option(underlying.getCreationTime).map(_.toInstant),
+        underlying = underlying
+      )
   }
 }
 
 class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F, Some] {
-  def archive: Pipe[F, (ArchiveEntry[Some], Stream[F, Byte]), Byte] = { stream =>
+  def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
         val zipOutputStream = new ZipOutputStream(outputStream)
@@ -74,7 +60,7 @@ class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F,
         stream
           .flatMap {
             case (archiveEntry, stream) =>
-              def entry = ZipEntry(archiveEntry).underlying
+              def entry = archiveEntry.underlying[JZipEntry]
 
               Stream.resource(Resource.make(
                   Async[F].blocking(zipOutputStream.putNextEntry(entry))
@@ -101,8 +87,8 @@ object ZipArchiver {
     new ZipArchiver(method, chunkSize)
 }
 
-class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry, Option] {
-  def unarchive: Pipe[F, Byte, (ZipEntry[Option], Stream[F, Byte])] = { stream =>
+class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, JZipEntry] {
+  def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, JZipEntry], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
@@ -113,7 +99,7 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry
         ))
       }
       .flatMap { zipInputStream =>
-        def readEntries: Stream[F, (ZipEntry[Option], Stream[F, Byte])] =
+        def readEntries: Stream[F, (ArchiveEntry[Option, JZipEntry], Stream[F, Byte])] =
           Stream.resource(Resource.make(
               Async[F].blocking(Option(zipInputStream.getNextEntry))
             )(_ =>
@@ -121,7 +107,7 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry
             ))
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>
-              val zipEntry = ZipEntry.fromJZipEntry(entry)
+              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
               Stream.eval(Deferred[F, Unit])
                 .flatMap { deferred =>
                   Stream.emit(
@@ -130,7 +116,7 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, ZipEntry
                   ) ++
                     Stream.exec(deferred.get)
                 }
-                .map(stream => (zipEntry, stream)) ++
+                .map(stream => (archiveEntry, stream)) ++
                 readEntries
             }
 
