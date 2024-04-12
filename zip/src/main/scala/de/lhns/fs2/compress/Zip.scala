@@ -113,6 +113,7 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, 
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>
               val archiveEntry = ArchiveEntry.fromUnderlying(entry)
+
               Stream.eval(Deferred[F, Unit])
                 .flatMap { deferred =>
                   Stream.emit(
