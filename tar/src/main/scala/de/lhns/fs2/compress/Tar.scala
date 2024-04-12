@@ -2,6 +2,8 @@ package de.lhns.fs2.compress
 
 import cats.effect.{Async, Deferred, Resource}
 import cats.syntax.functor._
+import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
+import de.lhns.fs2.compress.Tar._
 import fs2.io._
 import fs2.{Pipe, Stream}
 import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream, TarArchiveOutputStream}
@@ -9,51 +11,54 @@ import org.apache.commons.compress.archivers.{ArchiveEntry => CommonsArchiveEntr
 
 import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.nio.file.attribute.FileTime
-import java.time.Instant
 
 object Tar {
-  implicit val tarArchiveEntry: ArchiveEntry[CommonsArchiveEntry] = new ArchiveEntry[CommonsArchiveEntry] {
-    override def name(entry: CommonsArchiveEntry): String =
-      entry.getName
-
-    override def size(entry: CommonsArchiveEntry): Option[Long] =
-      Some(entry.getSize).filterNot(_ == CommonsArchiveEntry.SIZE_UNKNOWN)
-
-    override def isDirectory(entry: CommonsArchiveEntry): Boolean =
-      entry.isDirectory
-
-    override def lastModified(entry: CommonsArchiveEntry): Option[Instant] =
-      Option(entry.getLastModifiedDate).map(_.toInstant)
-  }
-
-
-  implicit val tarArchiveEntryConstructor: ArchiveEntryConstructor[TarArchiveEntry] = new ArchiveEntryConstructor[TarArchiveEntry] {
-    override def apply(
-                        name: String,
-                        size: Option[Long],
-                        isDirectory: Boolean,
-                        lastModified: Option[Instant]
-                      ): TarArchiveEntry = {
-      val fileOrDirName = name match {
-        case name if isDirectory && !name.endsWith("/") => name + "/"
-        case name if !isDirectory && name.endsWith("/") => name.dropRight(1)
+  // The underlying information is lost if the isDirectory attribute of an ArchiveEntry is changed
+  implicit val tarArchiveEntryToUnderlying: ArchiveEntryToUnderlying[TarArchiveEntry] = new ArchiveEntryToUnderlying[TarArchiveEntry] {
+    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): TarArchiveEntry = {
+      val fileOrDirName = entry.name match {
+        case name if entry.isDirectory && !name.endsWith("/") => name + "/"
+        case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
         case name => name
       }
-      val entry = new TarArchiveEntry(fileOrDirName)
-      size.foreach(entry.setSize)
-      lastModified.map(FileTime.from).foreach(entry.setLastModifiedTime)
-      entry
-    }
 
+      val tarEntry = underlying match {
+        case tarEntry: TarArchiveEntry if tarEntry.isDirectory == entry.isDirectory =>
+          // copy TarArchiveEntry
+          val buffer = new Array[Byte](512) // TarArchiveOutputStream.RECORD_SIZE
+          tarEntry.writeEntryHeader(buffer)
+          val newTarEntry = new TarArchiveEntry(buffer)
+          newTarEntry.setName(fileOrDirName)
+          newTarEntry
+
+        case _ =>
+          new TarArchiveEntry(fileOrDirName)
+      }
+
+      entry.uncompressedSize.foreach(tarEntry.setSize)
+      entry.lastModified.map(FileTime.from).foreach(tarEntry.setLastModifiedTime)
+      entry.lastAccess.map(FileTime.from).foreach(tarEntry.setLastAccessTime)
+      entry.creation.map(FileTime.from).foreach(tarEntry.setCreationTime)
+      tarEntry
+    }
+  }
+
+  implicit val tarArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, TarArchiveEntry] = new ArchiveEntryFromUnderlying[Option, TarArchiveEntry] {
+    override def archiveEntry(underlying: TarArchiveEntry): ArchiveEntry[Option, TarArchiveEntry] =
+      ArchiveEntry(
+        name = underlying.getName,
+        isDirectory = underlying.isDirectory,
+        uncompressedSize = Some(underlying.getSize).filterNot(_ == CommonsArchiveEntry.SIZE_UNKNOWN),
+        lastModified = Option(underlying.getLastModifiedTime).map(_.toInstant),
+        lastAccess = Option(underlying.getLastAccessTime).map(_.toInstant),
+        creation = Option(underlying.getCreationTime).map(_.toInstant),
+        underlying = underlying
+      )
   }
 }
 
-class TarArchiver[F[_] : Async](chunkSize: Int) extends Archiver[F, TarArchiveEntry] {
-  override def archiveEntryConstructor: ArchiveEntryConstructor[TarArchiveEntry] = Tar.tarArchiveEntryConstructor
-
-  override def archiveEntry: ArchiveEntry[TarArchiveEntry] = Tar.tarArchiveEntry
-
-  override def archive: Pipe[F, (TarArchiveEntry, Stream[F, Byte]), Byte] = { stream =>
+class TarArchiver[F[_] : Async](chunkSize: Int) extends Archiver[F, Some] {
+  override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
         new TarArchiveOutputStream(outputStream)
@@ -62,22 +67,18 @@ class TarArchiver[F[_] : Async](chunkSize: Int) extends Archiver[F, TarArchiveEn
       ).use { tarOutputStream =>
         stream
           .flatMap {
-            case (tarEntry, stream) =>
-              stream
-                .chunkAll
-                .flatMap { chunk =>
-                  tarEntry.setSize(chunk.size)
-                  val stream = Stream.chunk(chunk).covary[F]
-                  Stream.resource(Resource.make(
-                    Async[F].blocking(tarOutputStream.putArchiveEntry(tarEntry))
-                  )(_ =>
-                    Async[F].blocking(tarOutputStream.closeArchiveEntry())
-                  ))
-                    .flatMap(_ =>
-                      stream
-                        .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false))
-                    )
-                }
+            case (archiveEntry, stream) =>
+              def entry = archiveEntry.underlying[TarArchiveEntry]
+
+              Stream.resource(Resource.make(
+                  Async[F].blocking(tarOutputStream.putArchiveEntry(entry))
+                )(_ =>
+                  Async[F].blocking(tarOutputStream.closeArchiveEntry())
+                ))
+                .flatMap(_ =>
+                  stream
+                    .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false))
+                )
           }
           .compile
           .drain
@@ -93,10 +94,8 @@ object TarArchiver {
     new TarArchiver(chunkSize)
 }
 
-class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, TarArchiveEntry] {
-  override def archiveEntry: ArchiveEntry[TarArchiveEntry] = Tar.tarArchiveEntry
-
-  override def unarchive: Pipe[F, Byte, (TarArchiveEntry, Stream[F, Byte])] = { stream =>
+class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
+  override def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
@@ -107,10 +106,11 @@ class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, TarArchi
         ))
       }
       .flatMap { tarInputStream =>
-        def readEntries: Stream[F, (TarArchiveEntry, Stream[F, Byte])] =
-          Stream.eval(Async[F].blocking(Option(tarInputStream.getNextTarEntry)))
+        def readEntries: Stream[F, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] =
+          Stream.eval(Async[F].blocking(Option(tarInputStream.getNextEntry)))
             .flatMap(Stream.fromOption[F](_))
-            .flatMap { tarEntry =>
+            .flatMap { entry =>
+              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
               Stream.eval(Deferred[F, Unit])
                 .flatMap { deferred =>
                   Stream.emit(
@@ -119,7 +119,7 @@ class TarUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, TarArchi
                   ) ++
                     Stream.exec(deferred.get)
                 }
-                .map(stream => (tarEntry, stream)) ++
+                .map(stream => (archiveEntry, stream)) ++
                 readEntries
             }
 
