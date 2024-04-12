@@ -9,15 +9,15 @@ import fs2.{Pipe, Stream}
 
 import java.io.{BufferedInputStream, InputStream, OutputStream}
 import java.nio.file.attribute.FileTime
-import java.util.zip.{ZipInputStream, ZipOutputStream, ZipEntry => JZipEntry}
+import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 
 object Zip {
   // The underlying information is lost if the name or isDirectory attribute of an ArchiveEntry is changed
-  implicit val zipArchiveEntryToUnderlying: ArchiveEntryToUnderlying[JZipEntry] = new ArchiveEntryToUnderlying[JZipEntry] {
-    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): JZipEntry = {
+  implicit val zipArchiveEntryToUnderlying: ArchiveEntryToUnderlying[ZipEntry] = new ArchiveEntryToUnderlying[ZipEntry] {
+    override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): ZipEntry = {
       val zipEntry = underlying match {
-        case zipEntry: JZipEntry if zipEntry.getName == entry.name && zipEntry.isDirectory == entry.isDirectory =>
-          new JZipEntry(zipEntry)
+        case zipEntry: ZipEntry if zipEntry.getName == entry.name && zipEntry.isDirectory == entry.isDirectory =>
+          new ZipEntry(zipEntry)
 
         case _ =>
           val fileOrDirName = entry.name match {
@@ -25,7 +25,7 @@ object Zip {
             case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
             case name => name
           }
-          new JZipEntry(fileOrDirName)
+          new ZipEntry(fileOrDirName)
       }
 
       entry.uncompressedSize.foreach(zipEntry.setSize)
@@ -36,8 +36,8 @@ object Zip {
     }
   }
 
-  implicit val zipArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, JZipEntry] = new ArchiveEntryFromUnderlying[Option, JZipEntry] {
-    override def archiveEntry(underlying: JZipEntry): ArchiveEntry[Option, JZipEntry] =
+  implicit val zipArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, ZipEntry] = new ArchiveEntryFromUnderlying[Option, ZipEntry] {
+    override def archiveEntry(underlying: ZipEntry): ArchiveEntry[Option, ZipEntry] =
       ArchiveEntry(
         name = underlying.getName,
         isDirectory = underlying.isDirectory,
@@ -51,7 +51,7 @@ object Zip {
 }
 
 class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F, Some] {
-  def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
+  override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource.make(Async[F].delay {
         val zipOutputStream = new ZipOutputStream(outputStream)
@@ -63,7 +63,7 @@ class ZipArchiver[F[_] : Async](method: Int, chunkSize: Int) extends Archiver[F,
         stream
           .flatMap {
             case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[JZipEntry]
+              def entry = archiveEntry.underlying[ZipEntry]
 
               Stream.resource(Resource.make(
                   Async[F].blocking(zipOutputStream.putNextEntry(entry))
@@ -90,8 +90,8 @@ object ZipArchiver {
     new ZipArchiver(method, chunkSize)
 }
 
-class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, JZipEntry] {
-  def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, JZipEntry], Stream[F, Byte])] = { stream =>
+class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, ZipEntry] {
+  override def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, ZipEntry], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F]).map(new BufferedInputStream(_, chunkSize))
       .flatMap { inputStream =>
@@ -102,7 +102,7 @@ class ZipUnarchiver[F[_] : Async](chunkSize: Int) extends Unarchiver[F, Option, 
         ))
       }
       .flatMap { zipInputStream =>
-        def readEntries: Stream[F, (ArchiveEntry[Option, JZipEntry], Stream[F, Byte])] =
+        def readEntries: Stream[F, (ArchiveEntry[Option, ZipEntry], Stream[F, Byte])] =
           Stream.resource(Resource.make(
               Async[F].blocking(Option(zipInputStream.getNextEntry))
             )(_ =>
