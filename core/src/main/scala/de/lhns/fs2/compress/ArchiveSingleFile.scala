@@ -2,10 +2,10 @@ package de.lhns.fs2.compress
 
 import fs2.{Pipe, Stream}
 
-class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]] private(
-                                                                       archiver: Archiver[F, Size],
-                                                                       entry: ArchiveEntry[Size, Any]
-                                                                     ) extends Compressor[F] {
+class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]] private (
+    archiver: Archiver[F, Size],
+    entry: ArchiveEntry[Size, Any]
+) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream
       .emit((entry, stream))
@@ -15,9 +15,9 @@ class ArchiveSingleFileCompressor[F[_], Size[A] <: Option[A]] private(
 
 object ArchiveSingleFileCompressor {
   def apply[F[_], Size[A] <: Option[A]](
-                                         archiver: Archiver[F, Size],
-                                         entry: ArchiveEntry[Size, Any]
-                                       ): ArchiveSingleFileCompressor[F, Size] =
+      archiver: Archiver[F, Size],
+      entry: ArchiveEntry[Size, Any]
+  ): ArchiveSingleFileCompressor[F, Size] =
     new ArchiveSingleFileCompressor(archiver, entry)
 
   def forName[F[_]](archiver: Archiver[F, Option], name: String): ArchiveSingleFileCompressor[F, Option] =
@@ -27,9 +27,9 @@ object ArchiveSingleFileCompressor {
     new ArchiveSingleFileCompressor(archiver, ArchiveEntry(name, Some(size)))
 }
 
-class ArchiveSingleFileDecompressor[F[_], Size[A] <: Option[A], Underlying] private(
-                                                                                     unarchiver: Unarchiver[F, Size, Underlying]
-                                                                                   ) extends Decompressor[F] {
+class ArchiveSingleFileDecompressor[F[_], Size[A] <: Option[A], Underlying] private (
+    unarchiver: Unarchiver[F, Size, Underlying]
+) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(unarchiver.unarchive)
@@ -44,7 +44,7 @@ class ArchiveSingleFileDecompressor[F[_], Size[A] <: Option[A], Underlying] priv
 
 object ArchiveSingleFileDecompressor {
   def apply[F[_], Size[A] <: Option[A], Underlying](
-                                                     unarchiver: Unarchiver[F, Size, Underlying]
-                                                   ): ArchiveSingleFileDecompressor[F, Size, Underlying] =
+      unarchiver: Unarchiver[F, Size, Underlying]
+  ): ArchiveSingleFileDecompressor[F, Size, Underlying] =
     new ArchiveSingleFileDecompressor(unarchiver)
 }

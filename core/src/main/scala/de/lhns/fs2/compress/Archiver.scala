@@ -9,8 +9,8 @@ trait Archiver[F[_], Size[A] <: Option[A]] {
 }
 
 object Archiver {
-  def checkUncompressedSize[F[_] : Async, Size[A] <: Option[A]]
-  : Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), (ArchiveEntry[Size, Any], Stream[F, Byte])] =
+  def checkUncompressedSize[F[_]: Async, Size[A] <: Option[A]]
+      : Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), (ArchiveEntry[Size, Any], Stream[F, Byte])] =
     _.map { case (entry, bytes) =>
       val newBytes = (entry.uncompressedSize: Option[Long]) match {
         case None => bytes

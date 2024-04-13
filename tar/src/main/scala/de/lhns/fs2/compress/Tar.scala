@@ -59,7 +59,7 @@ object Tar {
     }
 }
 
-class TarArchiver[F[_] : Async] private(chunkSize: Int) extends Archiver[F, Some] {
+class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource
@@ -92,11 +92,11 @@ class TarArchiver[F[_] : Async] private(chunkSize: Int) extends Archiver[F, Some
 object TarArchiver {
   def apply[F[_]](implicit instance: TarArchiver[F]): TarArchiver[F] = instance
 
-  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
+  def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
     new TarArchiver(chunkSize)
 }
 
-class TarUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
+class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
   override def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F])
@@ -137,6 +137,6 @@ class TarUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F, 
 object TarUnarchiver {
   def apply[F[_]](implicit instance: TarUnarchiver[F]): TarUnarchiver[F] = instance
 
-  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
+  def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
     new TarUnarchiver(chunkSize)
 }
