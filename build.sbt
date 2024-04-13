@@ -11,7 +11,7 @@ val V = new {
   val catsEffect = "3.5.4"
   val commonsCompress = "1.26.1"
   val fs2 = "3.10.2"
-  val logbackClassic = "1.5.4"
+  val logbackClassic = "1.5.5"
   val munit = "0.7.29"
   val munitTaglessFinal = "0.2.1"
   val zip4j = "2.11.5"
@@ -21,12 +21,12 @@ val V = new {
 lazy val commonSettings: SettingsDefinition = Def.settings(
   version := {
     val Tag = "refs/tags/v?([0-9]+(?:\\.[0-9]+)+(?:[+-].*)?)".r
-    sys.env.get("CI_VERSION").collect { case Tag(tag) => tag }
+    sys.env
+      .get("CI_VERSION")
+      .collect { case Tag(tag) => tag }
       .getOrElse("0.0.1-SNAPSHOT")
   },
-
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
-
   homepage := scmInfo.value.map(_.browseUrl),
   scmInfo := Some(
     ScmInfo(
@@ -35,32 +35,28 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     )
   ),
   developers := List(
-    Developer(id = "lhns", name = "Pierre Kisters", email = "pierrekisters@gmail.com", url = url("https://github.com/lhns/"))
+    Developer(
+      id = "lhns",
+      name = "Pierre Kisters",
+      email = "pierrekisters@gmail.com",
+      url = url("https://github.com/lhns/")
+    )
   ),
-
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
     "de.lhns" %%% "munit-tagless-final" % V.munitTaglessFinal % Test,
-    "org.scalameta" %%% "munit" % V.munit % Test,
+    "org.scalameta" %%% "munit" % V.munit % Test
   ),
-
   testFrameworks += new TestFramework("munit.Framework"),
-
   libraryDependencies ++= virtualAxes.?.value.getOrElse(Seq.empty).collectFirst {
     case VirtualAxis.ScalaVersionAxis(version, _) if version.startsWith("2.") =>
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
   },
-
   Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
-
   Compile / doc / sources := Seq.empty,
-
   publishMavenStyle := true,
-
   publishTo := sonatypePublishToBundle.value,
-
   sonatypeCredentialHost := "s01.oss.sonatype.org",
-
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")
     password <- sys.env.get("SONATYPE_PASSWORD")
@@ -69,7 +65,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     sonatypeCredentialHost.value,
     username,
     password
-  )).toList,
+  )).toList
 )
 
 lazy val root: Project =
@@ -89,105 +85,105 @@ lazy val root: Project =
     .aggregate(bzip2.projectRefs: _*)
     .aggregate(brotli.projectRefs: _*)
 
-lazy val core = projectMatrix.in(file("core"))
+lazy val core = projectMatrix
+  .in(file("core"))
   .settings(commonSettings)
   .settings(
     name := "fs2-compress",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-core" % V.fs2,
-      "org.typelevel" %%% "cats-effect" % V.catsEffect,
-    ),
+      "org.typelevel" %%% "cats-effect" % V.catsEffect
+    )
   )
   .jvmPlatform(scalaVersions)
   .jsPlatform(scalaVersions)
 
-lazy val gzip = projectMatrix.in(file("gzip"))
+lazy val gzip = projectMatrix
+  .in(file("gzip"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-gzip",
-
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
-    ),
+      "co.fs2" %%% "fs2-io" % V.fs2
+    )
   )
   .jvmPlatform(scalaVersions)
   .jsPlatform(scalaVersions)
 
-lazy val zip = projectMatrix.in(file("zip"))
+lazy val zip = projectMatrix
+  .in(file("zip"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-zip",
-
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
-    ),
+      "co.fs2" %%% "fs2-io" % V.fs2
+    )
   )
   .jvmPlatform(scalaVersions)
 
-lazy val zip4j = projectMatrix.in(file("zip4j"))
+lazy val zip4j = projectMatrix
+  .in(file("zip4j"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-zip4j",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "net.lingala.zip4j" % "zip4j" % V.zip4j,
-    ),
+      "net.lingala.zip4j" % "zip4j" % V.zip4j
+    )
   )
   .jvmPlatform(scalaVersions)
 
-lazy val tar = projectMatrix.in(file("tar"))
+lazy val tar = projectMatrix
+  .in(file("tar"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-tar",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "org.apache.commons" % "commons-compress" % V.commonsCompress,
-    ),
+      "org.apache.commons" % "commons-compress" % V.commonsCompress
+    )
   )
   .jvmPlatform(scalaVersions)
 
-lazy val zstd = projectMatrix.in(file("zstd"))
+lazy val zstd = projectMatrix
+  .in(file("zstd"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-zstd",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "com.github.luben" % "zstd-jni" % V.zstdJni,
-    ),
+      "com.github.luben" % "zstd-jni" % V.zstdJni
+    )
   )
   .jvmPlatform(scalaVersions)
 
-lazy val bzip2 = projectMatrix.in(file("bzip2"))
+lazy val bzip2 = projectMatrix
+  .in(file("bzip2"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-bzip2",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "org.apache.commons" % "commons-compress" % V.commonsCompress,
-    ),
+      "org.apache.commons" % "commons-compress" % V.commonsCompress
+    )
   )
   .jvmPlatform(scalaVersions)
 
-lazy val brotli = projectMatrix.in(file("brotli"))
+lazy val brotli = projectMatrix
+  .in(file("brotli"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-brotli",
-
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "org.brotli" % "dec" % V.brotli,
-    ),
+      "org.brotli" % "dec" % V.brotli
+    )
   )
   .jvmPlatform(scalaVersions)
