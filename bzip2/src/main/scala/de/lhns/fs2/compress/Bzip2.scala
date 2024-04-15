@@ -7,7 +7,7 @@ import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream
 
 import java.io.{BufferedInputStream, OutputStream}
 
-class Bzip2Compressor[F[_] : Async] private(blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
+class Bzip2Compressor[F[_]: Async] private (blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       stream
@@ -31,13 +31,13 @@ class Bzip2Compressor[F[_] : Async] private(blockSize: Option[Int], chunkSize: I
 object Bzip2Compressor {
   def apply[F[_]](implicit instance: Bzip2Compressor[F]): Bzip2Compressor[F] = instance
 
-  def make[F[_] : Async](
-                          blockSize: Option[Int] = None,
-                          chunkSize: Int = Defaults.defaultChunkSize
-                        ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
+  def make[F[_]: Async](
+      blockSize: Option[Int] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
 }
 
-class Bzip2Decompressor[F[_] : Async] private(chunkSize: Int) extends Decompressor[F] {
+class Bzip2Decompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
   override def decompress: Pipe[F, Byte, Byte] = { stream =>
     stream
       .through(toInputStream[F])
@@ -54,6 +54,6 @@ class Bzip2Decompressor[F[_] : Async] private(chunkSize: Int) extends Decompress
 object Bzip2Decompressor {
   def apply[F[_]](implicit instance: Bzip2Decompressor[F]): Bzip2Decompressor[F] = instance
 
-  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
+  def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
     new Bzip2Decompressor(chunkSize)
 }

@@ -64,7 +64,7 @@ object Zip4J {
     }
 }
 
-class Zip4JArchiver[F[_] : Async] private(password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
+class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource
@@ -99,14 +99,14 @@ class Zip4JArchiver[F[_] : Async] private(password: => Option[String], chunkSize
 object Zip4JArchiver {
   def apply[F[_]](implicit instance: Zip4JArchiver[F]): Zip4JArchiver[F] = instance
 
-  def make[F[_] : Async](
-                          password: => Option[String] = None,
-                          chunkSize: Int = Defaults.defaultChunkSize
-                        ): Zip4JArchiver[F] =
+  def make[F[_]: Async](
+      password: => Option[String] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Zip4JArchiver[F] =
     new Zip4JArchiver(password, chunkSize)
 }
 
-class Zip4JUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F, Option, LocalFileHeader] {
+class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, LocalFileHeader] {
   def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] = { stream =>
     stream
       .through(toInputStream[F])
@@ -152,6 +152,6 @@ class Zip4JUnarchiver[F[_] : Async] private(chunkSize: Int) extends Unarchiver[F
 object Zip4JUnarchiver {
   def apply[F[_]](implicit instance: Zip4JUnarchiver[F]): Zip4JUnarchiver[F] = instance
 
-  def make[F[_] : Async](chunkSize: Int = Defaults.defaultChunkSize): Zip4JUnarchiver[F] =
+  def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Zip4JUnarchiver[F] =
     new Zip4JUnarchiver(chunkSize)
 }
