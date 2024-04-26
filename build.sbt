@@ -15,7 +15,7 @@ val V = new {
   val munit = "0.7.29"
   val munitTaglessFinal = "0.2.1"
   val zip4j = "2.11.5"
-  val zstdJni = "1.5.6-2"
+  val zstdJni = "1.5.6-3"
 }
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
