@@ -12,8 +12,7 @@ val V = new {
   val commonsCompress = "1.26.1"
   val fs2 = "3.10.2"
   val logbackClassic = "1.5.6"
-  val munit = "1.0.0"
-  val munitTaglessFinal = "0.2.1"
+  val munitCatsEffect = "2.0.0"
   val zip4j = "2.11.5"
   val zstdJni = "1.5.6-3"
 }
@@ -44,8 +43,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   ),
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
-    "de.lhns" %%% "munit-tagless-final" % V.munitTaglessFinal % Test,
-    "org.scalameta" %%% "munit" % V.munit % Test
+    "org.typelevel" %%% "munit-cats-effect" % V.munitCatsEffect % Test
   ),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= virtualAxes.?.value.getOrElse(Seq.empty).collectFirst {

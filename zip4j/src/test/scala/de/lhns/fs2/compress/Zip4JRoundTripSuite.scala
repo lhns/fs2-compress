@@ -3,10 +3,11 @@ package de.lhns.fs2.compress
 import cats.effect.IO
 import cats.effect.std.Random
 import fs2.{Chunk, Stream}
+import munit.CatsEffectSuite
 
 import java.util
 
-class Zip4JRoundTripSuite extends IOSuite {
+class Zip4JRoundTripSuite extends CatsEffectSuite {
   implicit val zipArchiver: Zip4JArchiver[IO] = Zip4JArchiver.make()
   implicit val zipUnarchiver: Zip4JUnarchiver[IO] = Zip4JUnarchiver.make()
 

@@ -4,10 +4,11 @@ import cats.effect.IO
 import cats.effect.std.Random
 import fs2.io.compression._
 import fs2.{Chunk, Stream}
+import munit.CatsEffectSuite
 
 import java.util
 
-class GzipRoundTripSuite extends IOSuite {
+class GzipRoundTripSuite extends CatsEffectSuite {
   implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make()
   implicit val gzipDecompressor: GzipDecompressor[IO] = GzipDecompressor.make()
 

@@ -3,10 +3,11 @@ package de.lhns.fs2.compress
 import cats.effect.IO
 import cats.effect.std.Random
 import fs2.{Chunk, Stream}
+import munit.CatsEffectSuite
 
 import java.util
 
-class Bzip2RoundTripSuite extends IOSuite {
+class Bzip2RoundTripSuite extends CatsEffectSuite {
   implicit val bzip2Compressor: Bzip2Compressor[IO] = Bzip2Compressor.make()
   implicit val bzip2Decompressor: Bzip2Decompressor[IO] = Bzip2Decompressor.make()
 
