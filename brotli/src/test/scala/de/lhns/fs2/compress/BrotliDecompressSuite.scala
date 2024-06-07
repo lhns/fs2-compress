@@ -2,12 +2,13 @@ package de.lhns.fs2.compress
 
 import cats.effect.IO
 import fs2._
+import munit.CatsEffectSuite
 
 import java.nio.charset.StandardCharsets
 import java.util
 import java.util.Base64
 
-class BrotliDecompressSuite extends IOSuite {
+class BrotliDecompressSuite extends CatsEffectSuite {
   implicit val brotliDecompressor: BrotliDecompressor[IO] = BrotliDecompressor.make()
 
   test("brotli decompress") {

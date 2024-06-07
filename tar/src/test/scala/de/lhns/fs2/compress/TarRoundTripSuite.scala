@@ -4,11 +4,12 @@ import cats.effect.IO
 import cats.effect.std.Random
 import de.lhns.fs2.compress.Tar._
 import fs2.{Chunk, Stream}
+import munit.CatsEffectSuite
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 
 import java.util
 
-class TarRoundTripSuite extends IOSuite {
+class TarRoundTripSuite extends CatsEffectSuite {
   implicit val tarArchiver: TarArchiver[IO] = TarArchiver.make()
   implicit val tarUnarchiver: TarUnarchiver[IO] = TarUnarchiver.make()
 
