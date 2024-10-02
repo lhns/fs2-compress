@@ -6,6 +6,7 @@ on:
       - '**'
     tags-ignore:
       - '*.*'
+  pull_request:
   release:
     types:
       - published
@@ -18,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4.3.0
+      - uses: actions/setup-java@v4.4.0
         with:
           distribution: 'temurin'
           java-version: '17'

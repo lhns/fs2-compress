@@ -1,4 +1,4 @@
-lazy val scalaVersions = Seq("3.5.1", "2.13.14", "2.12.20")
+lazy val scalaVersions = Seq("3.5.1", "2.13.15", "2.12.20")
 
 ThisBuild / scalaVersion := scalaVersions.head
 ThisBuild / versionScheme := Some("early-semver")
@@ -12,9 +12,10 @@ val V = new {
   val commonsCompress = "1.27.1"
   val fs2 = "3.11.0"
   val logbackClassic = "1.5.8"
+  val lz4 = "1.8.0"
   val munitCatsEffect = "2.0.0"
   val zip4j = "2.11.5"
-  val zstdJni = "1.5.6-5"
+  val zstdJni = "1.5.6-6"
 }
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
@@ -82,6 +83,7 @@ lazy val root: Project =
     .aggregate(zstd.projectRefs: _*)
     .aggregate(bzip2.projectRefs: _*)
     .aggregate(brotli.projectRefs: _*)
+    .aggregate(lz4.projectRefs: _*)
 
 lazy val core = projectMatrix
   .in(file("core"))
@@ -182,6 +184,19 @@ lazy val brotli = projectMatrix
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
       "org.brotli" % "dec" % V.brotli
+    )
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val lz4 = projectMatrix
+  .in(file("lz4"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-lz4",
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+      "org.lz4" % "lz4-java" % V.lz4
     )
   )
   .jvmPlatform(scalaVersions)
