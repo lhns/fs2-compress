@@ -21,6 +21,7 @@ libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "2.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "2.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.0.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.0.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.0.1"
 ```
 
 ### Example
