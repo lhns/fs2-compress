@@ -53,8 +53,8 @@ object Zip {
     }
 }
 
-class ZipArchiver[F[_]: Async] private (method: Int, chunkSize: Int) extends Archiver[F, Some] {
-  override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
+class ZipArchiver[F[_]: Async] private (method: Int, chunkSize: Int) extends Archiver[F, Option] {
+  override def archive: Pipe[F, (ArchiveEntry[Option, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource
         .make(Async[F].delay {

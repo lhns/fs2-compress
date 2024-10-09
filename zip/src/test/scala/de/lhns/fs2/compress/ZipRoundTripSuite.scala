@@ -58,4 +58,19 @@ class ZipRoundTripSuite extends CatsEffectSuite {
       _ = assert(util.Arrays.equals(expected, obtained))
     } yield ()
   }
+
+  test("zip round trip without specifying size") {
+    for {
+      random <- Random.scalaUtilRandom[IO]
+      expected <- random.nextBytes(1024 * 1024)
+      obtained <- Stream
+        .chunk(Chunk.array(expected))
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
+        .chunkAll
+        .compile
+        .lastOrError
+        .map(_.toArray)
+    } yield assert(util.Arrays.equals(expected, obtained))
+  }
 }
