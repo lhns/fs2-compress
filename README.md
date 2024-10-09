@@ -26,6 +26,7 @@ libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.1.0"
 
 ### Example
 
+## Gzip
 ```scala
 import cats.effect.IO
 import de.lhns.fs2.compress.{GzipCompressor, GzipDecompressor}
@@ -47,6 +48,40 @@ for {
     .compile
     .drain
 } yield ()
+```
+
+## Zip
+```scala
+/** Compress a directory into a .zip file
+  * @param toCompress
+  *   The directory to compress
+  * @param output
+  *   The where the .zip file should be written to
+  * @tparam F
+  *   The effect type to run in, e.g. cats.effect.IO
+  * @return
+  *   An effect in F which when run will compress the files in toCompress and write a .zip file to output
+  * @note
+  *   This example assumes that the toCompress is a directory and only contains files, no subdirectories
+  */
+def compressDirectory[F[_]: cats.effect.Async](toCompress: fs2.io.file.Path, output: fs2.io.file.Path): F[Unit] = {
+  val zip = de.lhns.fs2.compress.ZipArchiver.make[F]()
+  fs2.io.file
+    .Files[F]
+    .list(toCompress)
+    .evalMap { path =>
+      fs2.io.file
+        .Files[F]
+        .size(path)
+        .map(size =>
+          ArchiveEntry[Some, Unit](path.toString, uncompressedSize = Some(size)) -> fs2.io.file.Files[F].readAll(path)
+        )
+    }
+    .through(zip.archive)
+    .through(fs2.io.file.Files[F].writeAll(output))
+    .compile
+    .drain
+}
 ```
 
 ## License
