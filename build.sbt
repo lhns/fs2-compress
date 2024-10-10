@@ -7,7 +7,7 @@ name := (core.projectRefs.head / name).value
 
 val V = new {
   val betterMonadicFor = "0.3.1"
-  val brotli = "0.1.2"
+  val brotli4j = "1.17.0"
   val catsEffect = "3.5.4"
   val commonsCompress = "1.27.1"
   val fs2 = "3.11.0"
@@ -183,7 +183,7 @@ lazy val brotli = projectMatrix
     name := "fs2-compress-brotli",
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
-      "org.brotli" % "dec" % V.brotli
+      "com.aayushatharva.brotli4j" % "brotli4j" % V.brotli4j
     )
   )
   .jvmPlatform(scalaVersions)
