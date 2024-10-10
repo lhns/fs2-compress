@@ -73,63 +73,153 @@ trait Unarchiver[F[_], Size[A] <: Option[A], Underlying] {
 ```
 
 ## Examples
+The following examples does not check that the paths used are valid. For real world applications you will probably want to
+add some checks to that effect.
 
-### Gzip
+### Compression
+Compression can be abstracted over using the `Compressor` typeclass. Adapt the following examples based on which compression algorithm you want to use.
 ```scala
-import cats.effect.IO
-import de.lhns.fs2.compress.{GzipCompressor, GzipDecompressor}
-import fs2.io.compression._
+import cats.effect.Async
+import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make()
-implicit val gzipDecompressor: GzipDecompressor[IO] = GzipDecompressor.make()
+// implicit def bzip2[F[_]: Async]: Compressor[F] = Bzip2Compressor.make()
+// implicit def lz4[F[_]: Async]: Compressor[F] = Lz4Compressor.make()
+// implicit def zstd[F[_]: Async]: Compressor[F] = ZstdCompressor.make()
+implicit def gzip[F[_]: Async]: Compressor[F] = GzipCompressor.make()
 
-for {
-  _ <- Files[IO].readAll(Path("file"))
-    .through(GzipCompressor[IO].compress)
-    .through(Files[IO].writeAll(Path("file.gz")))
+def compressFile[F[_]: Async](toCompress: Path, writeTo: Path)(implicit compressor: Compressor[F]): F[Unit] =
+  Files[F]
+    .readAll(toCompress)
+    .through(compressor.compress)
+    .through(Files[F].writeAll(writeTo))
     .compile
     .drain
-  _ <- Files[IO].readAll(Path("file.gz"))
-    .through(GzipDecompressor[IO].decompress)
-    .through(Files[IO].writeAll(Path("file")))
-    .compile
-    .drain
-} yield ()
 ```
 
-### Zip
+### Decompression
+Similarly, decompression can be abstracted over using the `Decompressor` typeclass. Adapt the following examples based on which compression algorithm was used to write the source file.
 ```scala
-/** Compress a directory into a .zip file
-  * @param toCompress
-  *   The directory to compress
-  * @param output
-  *   The where the .zip file should be written to
-  * @tparam F
-  *   The effect type to run in, e.g. cats.effect.IO
-  * @return
-  *   An effect in F which when run will compress the files in toCompress and write a .zip file to output
-  * @note
-  *   This example assumes that the toCompress is a directory and only contains files, no subdirectories
-  */
-def compressDirectory[F[_]: cats.effect.Async](toCompress: fs2.io.file.Path, output: fs2.io.file.Path): F[Unit] = {
-  val zip = de.lhns.fs2.compress.ZipArchiver.make[F]()
-  fs2.io.file
-    .Files[F]
-    .list(toCompress)
-    .evalMap { path =>
-      fs2.io.file
-        .Files[F]
-        .size(path)
-        .map(size =>
-          ArchiveEntry[Some, Unit](path.toString, uncompressedSize = Some(size)) -> fs2.io.file.Files[F].readAll(path)
-        )
-    }
-    .through(zip.archive)
-    .through(fs2.io.file.Files[F].writeAll(output))
+import cats.effect.Async
+import de.lhns.fs2.compress._
+import fs2.io.file.{Files, Path}
+
+// implicit def brotli[F[_]: Async]: Decompressor[F] = BrotliDecompressor.make()
+// implicit def bzip2[F[_]: Async]: Decompressor[F] = Bzip2Decompressor.make()
+// implicit def lz4[F[_]: Async]: Decompressor[F] = Lz4Decompressor.make()
+// implicit def zstd[F[_]: Async]: Decompressor[F] = ZstdDecompressor.make()
+implicit def gzip[F[_]: Async]: Decompressor[F] = GzipDecompressor.make()
+
+def decompressFile[F[_]: Async](toDecompress: Path, writeTo: Path)(implicit decompressor: Decompressor[F]): F[Unit] =
+  Files[F]
+    .readAll(toCompress)
+    .through(decompressor.decompress)
+    .through(Files[F].writeAll(writeTo))
     .compile
     .drain
-}
+```
+
+### Archiving
+The library supports both `.zip` and `.tar` archives, with support for `.zip` through both the native Java implementation and the [zip4j](https://github.com/srikanth-lingala/zip4j) library.
+
+```scala
+import cats.effect.Async
+import de.lhns.fs2.compress._
+import fs2.io.file.{Files, Path}
+
+// implicit def tar[F[_]: Async]: Archiver[F, Some] = TarArchiver.make()
+// implicit def zip4j[F[_]: Async]: Archiver[F, Some] = Zip4JArchiver.make()
+implicit def zip[F[_]: Async]: Archiver[F, Some] = ZipArchiver.make()
+
+def archiveDirectory[F[_]](directory: Path, writeTo: Path)(implicit archiver: Archiver[F, Some]): F[Unit] =
+  Files[F]
+    .list(directory)
+    .evalMap { path =>
+      Files[F]
+        .size(path)
+        .map { size =>
+          // Name the entry based on the relative path between the source directory and the file
+          val name = directory.relativize(path).toString
+          ArchiveEntry[Some, Unit](name, uncompressedSize = Some(size)) -> Files[F].readAll(path)
+        }
+    }
+    .through(archiver.archive)
+    .through(Files[F].writeAll(writeTo))
+    .compile
+    .drain
+```
+Note that `.tar` doesn't compress the archive, so to create a `.tar.gz` file you will have to combine the archiver with
+the `GzipCompressor`
+
+```scala
+import cats.effect.Async
+import de.lhns.fs2.compress._
+import fs2.io.file.{Files, Path}
+
+implicit def gzip[F[_]: Async]: Compressor[F] = GzipCompressor.make()
+implicit def tar[F[_]: Async]: Archiver[F, Some] = TarArchiver.make()
+
+def tarAndGzip[F[_]: Async](directory: Path, writeTo: Path)(implicit archiver: Archiver[F, Some], compressor: Compressor[F]): F[Unit] =
+  Files[F]
+    .list(directory)
+    .evalMap { path =>
+      Files[F]
+        .size(path)
+        .map { size =>
+          // Name the entry based on the relative path between the source directory and the file
+          val name = directory.relativize(path).toString
+          ArchiveEntry[Some, Unit](name, uncompressedSize = Some(size)) -> Files[F].readAll(path)
+        }
+    }
+    .through(archiver.archive)
+    .through(compressor.compress)
+    .through(Files[F].writeAll(writeTo))
+    .compile
+    .drain
+```
+
+### Unarchiving
+To unarchive we use the `Unarchiver` typeclass matching our archive format.
+
+```scala
+import cats.effect.Async
+import de.lhns.fs2.compress._
+import fs2.io.file.{Files, Path}
+
+// implicit def tar[F[_]: Async]: UnArchiver[F, Option] = TarUnArchiver.make()
+// implicit def zip4j[F[_]: Async]: UnArchiver[F, Option] = Zip4JUnArchiver.make()
+implicit def zip[F[_]: Async]: UnArchiver[F, Option] = ZipUnArchiver.make()
+
+def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: UnArchiver[F, Option]): F[Unit] =
+  Files[F]
+    .readAll(archive)
+    .through(archiver.unarchive)
+    .flatMap { case (entry, data) =>
+      data.through(Files[F].writeAll(writeTo.resolve(entry.name)))
+    }
+    .compile
+    .drain
+```
+Once again if you have a `.tar.gz` file you will have to combine the unarchiver with the `GzipDecompressor`
+
+```scala
+import cats.effect.Async
+import de.lhns.fs2.compress._
+import fs2.io.file.{Files, Path}
+
+implicit def gzip[F[_]: Async]: Decompressor[F] = GzipDecompressor.make()
+implicit def tar[F[_]: Async]: UnArchiver[F, Option] = TarUnArchiver.make()
+
+def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: UnArchiver[F, Option], decompressor: Decompress[F]): F[Unit] =
+  Files[F]
+    .readAll(archive)
+    .through(decompressor.decompress)
+    .through(archiver.unarchive)
+    .flatMap { case (entry, data) =>
+      data.through(Files[F].writeAll(writeTo.resolve(entry.name)))
+    }
+    .compile
+    .drain
 ```
 
 ## License
