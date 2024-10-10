@@ -29,12 +29,12 @@ jobs:
           SBT_OPTS: '-Xmx2G'
         run: sbt "; test"
       - name: Publish
-        if: github.event_name == 'release'
         env:
           CI_VERSION: ${{ github.ref }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SBT_OPTS: '-Xmx2G'
+        if: github.event_name == 'release'
         run: |
           sbt "; sonatypeBundleClean; publishSigned; sonatypeBundleRelease"
   dependency-graph:
@@ -42,7 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: sbt/setup-sbt@v1
       - uses: scalacenter/sbt-dependency-submission@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: ${{ env.GITHUB_TOKEN }}
+        if: env.GITHUB_TOKEN && github.event_name != 'pull_request'
