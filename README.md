@@ -24,9 +24,9 @@ libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.1.0"
 libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.1.0"
 ```
 
-### Example
+## Examples
 
-## Gzip
+### Gzip
 ```scala
 import cats.effect.IO
 import de.lhns.fs2.compress.{GzipCompressor, GzipDecompressor}
@@ -50,7 +50,7 @@ for {
 } yield ()
 ```
 
-## Zip
+### Zip
 ```scala
 /** Compress a directory into a .zip file
   * @param toCompress
