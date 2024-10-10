@@ -8,7 +8,8 @@ import munit.CatsEffectSuite
 import java.util
 
 class ZipRoundTripSuite extends CatsEffectSuite {
-  implicit val zipArchiver: ZipArchiver[IO] = ZipArchiver.make()
+  implicit val zipArchiverSome: ZipArchiver[IO, Some] = ZipArchiver.make()
+  implicit val zipArchiver: ZipArchiver[IO, Option] = ZipArchiver.make()
   implicit val zipUnarchiver: ZipUnarchiver[IO] = ZipUnarchiver.make()
 
   test("zip round trip") {
@@ -17,7 +18,7 @@ class ZipRoundTripSuite extends CatsEffectSuite {
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test", expected.length).compress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO, Some], "test", expected.length).compress)
         .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile
@@ -33,7 +34,7 @@ class ZipRoundTripSuite extends CatsEffectSuite {
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test", expected.length - 1).compress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO, Some], "test", expected.length - 1).compress)
         .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile
@@ -49,7 +50,7 @@ class ZipRoundTripSuite extends CatsEffectSuite {
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test", expected.length + 1).compress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO, Some], "test", expected.length + 1).compress)
         .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile
@@ -65,7 +66,7 @@ class ZipRoundTripSuite extends CatsEffectSuite {
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO], "test").compress)
+        .through(ArchiveSingleFileCompressor.forName(ZipArchiver[IO, Option], "test").compress)
         .through(ArchiveSingleFileDecompressor(ZipUnarchiver[IO]).decompress)
         .chunkAll
         .compile
