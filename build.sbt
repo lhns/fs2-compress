@@ -84,6 +84,7 @@ lazy val root: Project =
     .aggregate(zstd.projectRefs: _*)
     .aggregate(bzip2.projectRefs: _*)
     .aggregate(brotli.projectRefs: _*)
+    .aggregate(brotli4j.projectRefs: _*)
     .aggregate(lz4.projectRefs: _*)
 
 lazy val core = projectMatrix
