@@ -186,11 +186,11 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-// implicit def tar[F[_]: Async]: UnArchiver[F, Option] = TarUnArchiver.make()
-// implicit def zip4j[F[_]: Async]: UnArchiver[F, Option] = Zip4JUnArchiver.make()
-implicit def zip[F[_]: Async]: UnArchiver[F, Option] = ZipUnArchiver.make()
+// implicit def tar[F[_]: Async]: Unarchiver[F, Option] = TarUnarchiver.make()
+// implicit def zip4j[F[_]: Async]: Unarchiver[F, Option] = Zip4JUnarchiver.make()
+implicit def zip[F[_]: Async]: Unarchiver[F, Option] = ZipUnarchiver.make()
 
-def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: UnArchiver[F, Option]): F[Unit] =
+def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: Unarchiver[F, Option]): F[Unit] =
   Files[F]
     .readAll(archive)
     .through(archiver.unarchive)
@@ -200,7 +200,7 @@ def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: UnArchiver[
     .compile
     .drain
 ```
-Once again if you have a `.tar.gz` file you will have to combine the unarchiver with the `GzipDecompressor`
+Once again if you have a `.tar.gz` file you will have to combine the `Unarchiver` with the `GzipDecompressor`
 
 ```scala
 import cats.effect.Async
@@ -208,9 +208,9 @@ import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
 implicit def gzip[F[_]: Async]: Decompressor[F] = GzipDecompressor.make()
-implicit def tar[F[_]: Async]: UnArchiver[F, Option] = TarUnArchiver.make()
+implicit def tar[F[_]: Async]: Unarchiver[F, Option] = TarUnarchiver.make()
 
-def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: UnArchiver[F, Option], decompressor: Decompress[F]): F[Unit] =
+def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: Unarchiver[F, Option], decompressor: Decompress[F]): F[Unit] =
   Files[F]
     .readAll(archive)
     .through(decompressor.decompress)
