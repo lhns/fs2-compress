@@ -89,6 +89,7 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
 object ZipArchiver {
   def apply[F[_], Size[A] <: Option[A]](implicit instance: ZipArchiver[F, Size]): ZipArchiver[F, Size] = instance
 
+  @deprecated("Use makeDeflated or makeStored instead", "2.2")
   def make[F[_]: Async, Size[A] <: Option[A]](
       method: Int = ZipOutputStream.DEFLATED,
       chunkSize: Int = Defaults.defaultChunkSize
