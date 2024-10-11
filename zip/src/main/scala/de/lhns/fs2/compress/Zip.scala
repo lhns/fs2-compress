@@ -53,8 +53,8 @@ object Zip {
     }
 }
 
-class ZipArchiver[F[_]: Async] private (method: Int, chunkSize: Int) extends Archiver[F, Some] {
-  override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
+class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int) extends Archiver[F, Size] {
+  override def archive: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
       Resource
         .make(Async[F].delay {
@@ -87,13 +87,26 @@ class ZipArchiver[F[_]: Async] private (method: Int, chunkSize: Int) extends Arc
 }
 
 object ZipArchiver {
-  def apply[F[_]](implicit instance: ZipArchiver[F]): ZipArchiver[F] = instance
+  def apply[F[_], Size[A] <: Option[A]](implicit instance: ZipArchiver[F, Size]): ZipArchiver[F, Size] = instance
 
-  def make[F[_]: Async](
+  @deprecated("Use makeDeflated or makeStored instead", "2.2")
+  def make[F[_]: Async, Size[A] <: Option[A]](
       method: Int = ZipOutputStream.DEFLATED,
       chunkSize: Int = Defaults.defaultChunkSize
-  ): ZipArchiver[F] =
+  ): ZipArchiver[F, Size] =
     new ZipArchiver(method, chunkSize)
+
+  /** Make a new [[ZipArchiver]] which uses the DEFLATED method for entries that don't specify their own method.
+    */
+  def makeDeflated[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Option] =
+    make[F, Option](ZipOutputStream.DEFLATED, chunkSize)
+
+  /** Make a new [[ZipArchiver]] which uses the STORED method for entries that don't specify their own method.
+    * @note
+    *   In order to use the STORED method the size must be known up front.
+    */
+  def makeStored[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Some] =
+    make[F, Some](ZipOutputStream.STORED, chunkSize)
 }
 
 class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, ZipEntry] {
