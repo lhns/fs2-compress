@@ -14,22 +14,26 @@ Integrations for several compression algorithms with [Fs2](https://github.com/ty
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip4j" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.1.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.1.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip4j" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli4j" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.2.0"
 ```
 
 ## Concepts
+
 This library introduces the following abstractions in order to work with several different compression algorithms and
 archive methods.
 
 ### Compression
+
 #### Compressor
+
 The `Compressor` typeclass abstracts the compression of a stream of bytes.
 ```scala
 trait Compressor[F[_]] {
@@ -39,6 +43,7 @@ trait Compressor[F[_]] {
 Passing a stream of bytes through the `Compressor.compress` pipe will result in a compressed stream of bytes. :tada:
 
 #### Decompressor
+
 The `Decompressor` typeclass abstracts the decompression of a stream of bytes.
 ```scala
 trait Decompressor[F[_]] {
@@ -48,16 +53,21 @@ trait Decompressor[F[_]] {
 Passing a stream of bytes through the `Decompressor.decompress` pipe will result in a decompressed stream of bytes. :tada:
 
 ### Archives
+
 The library also provides abstractions for working with archive formats. An archive is a collection of files and directories
 which may or may not also include compression depending on the archive format.
+
 #### ArchiveEntry
+
 An `ArchiveEntry` represents a file or directory in an archive. It has the following signature:
 ```scala
 case class ArchiveEntry[+Size[A] <: Option[A], Underlying](name: String, uncompressedSize: Size[Long], underlying: Underlying, ...)
 ```
 The `Size` type parameter is used to encode whether the size of the entry is known or not. For some archive formats the size
 of an entry must be known in advance, and as such the relevant `Archiver` will require that the `Size` type parameter is `Some`.
+
 #### Archiver
+
 The `Archiver` typeclass abstracts the creation of an archive from a stream of `ArchiveEntry` paired with the relevant data.
 ```scala
 trait Archiver[F[_], Size[A] <: Option[A]] {
@@ -65,6 +75,7 @@ trait Archiver[F[_], Size[A] <: Option[A]] {
 }
 ```
 #### Unarchiver
+
 The `Unarchiver` typeclass abstracts the extraction of an archive into a stream of `ArchiveEntry` paired with the relevant data.
 ```scala
 trait Unarchiver[F[_], Size[A] <: Option[A], Underlying] {
@@ -73,10 +84,12 @@ trait Unarchiver[F[_], Size[A] <: Option[A], Underlying] {
 ```
 
 ## Examples
+
 The following examples does not check that the paths used are valid. For real world applications you will probably want to
 add some checks to that effect.
 
 ### Compression
+
 Compression can be abstracted over using the `Compressor` typeclass. Adapt the following examples based on which compression algorithm you want to use.
 ```scala
 import cats.effect.Async
@@ -98,6 +111,7 @@ def compressFile[F[_]: Async](toCompress: Path, writeTo: Path)(implicit compress
 ```
 
 ### Decompression
+
 Similarly, decompression can be abstracted over using the `Decompressor` typeclass. Adapt the following examples based on which compression algorithm was used to write the source file.
 ```scala
 import cats.effect.Async
@@ -120,6 +134,7 @@ def decompressFile[F[_]: Async](toDecompress: Path, writeTo: Path)(implicit deco
 ```
 
 ### Archiving
+
 The library supports both `.zip` and `.tar` archives, with support for `.zip` through both the native Java implementation and the [zip4j](https://github.com/srikanth-lingala/zip4j) library.
 
 ```scala
@@ -179,6 +194,7 @@ def tarAndGzip[F[_]: Async](directory: Path, writeTo: Path)(implicit archiver: A
 ```
 
 ### Unarchiving
+
 To unarchive we use the `Unarchiver` typeclass matching our archive format.
 
 ```scala
