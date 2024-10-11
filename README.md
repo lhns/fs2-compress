@@ -129,7 +129,7 @@ import fs2.io.file.{Files, Path}
 
 // implicit def tar[F[_]: Async]: Archiver[F, Some] = TarArchiver.make()
 // implicit def zip4j[F[_]: Async]: Archiver[F, Some] = Zip4JArchiver.make()
-implicit def zip[F[_]: Async]: Archiver[F, Some] = ZipArchiver.make()
+implicit def zip[F[_]: Async]: Archiver[F, Some] = ZipArchiver.makeDeflated()
 
 def archiveDirectory[F[_]](directory: Path, writeTo: Path)(implicit archiver: Archiver[F, Some]): F[Unit] =
   Files[F]
