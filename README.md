@@ -14,15 +14,15 @@ Integrations for several compression algorithms with [Fs2](https://github.com/ty
 ### build.sbt
 
 ```sbt
-libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zip4j" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-brotli4j" % "2.2.0"
-libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.2.0"
+libraryDependencies += "de.lhns" %% "fs2-compress-gzip" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-zip4j" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-tar" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-bzip2" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-brotli4j" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.2.1"
 ```
 
 ## Concepts
