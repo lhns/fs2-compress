@@ -96,6 +96,7 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
+// implicit def brotli4J[F[_]: Async]: Compressor[F] = Brotli4JCompressor.make()
 // implicit def bzip2[F[_]: Async]: Compressor[F] = Bzip2Compressor.make()
 // implicit def lz4[F[_]: Async]: Compressor[F] = Lz4Compressor.make()
 // implicit def zstd[F[_]: Async]: Compressor[F] = ZstdCompressor.make()
@@ -119,6 +120,7 @@ import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
 // implicit def brotli[F[_]: Async]: Decompressor[F] = BrotliDecompressor.make()
+// implicit def brotli4J[F[_]: Async]: Decompressor[F] = Brotli4JDecompressor.make()
 // implicit def bzip2[F[_]: Async]: Decompressor[F] = Bzip2Decompressor.make()
 // implicit def lz4[F[_]: Async]: Decompressor[F] = Lz4Decompressor.make()
 // implicit def zstd[F[_]: Async]: Decompressor[F] = ZstdDecompressor.make()
