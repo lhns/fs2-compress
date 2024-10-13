@@ -34,4 +34,7 @@ object GzipDecompressor {
 
   def make[F[_]: Async: Compression](chunkSize: Int = Defaults.defaultChunkSize): GzipDecompressor[F] =
     new GzipDecompressor(chunkSize)
+
+  def decompress[F[_]: Async: Compression](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

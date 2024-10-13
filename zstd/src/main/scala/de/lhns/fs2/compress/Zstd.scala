@@ -54,4 +54,7 @@ object ZstdDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdDecompressor[F] =
     new ZstdDecompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

@@ -56,4 +56,7 @@ object Bzip2Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
     new Bzip2Decompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

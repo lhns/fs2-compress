@@ -48,4 +48,7 @@ object Lz4Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Lz4Decompressor[F] =
     new Lz4Decompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

@@ -134,6 +134,17 @@ def decompressFile[F[_]: Async](toDecompress: Path, writeTo: Path)(implicit deco
     .compile
     .drain
 ```
+For convenience the `_Decompressor` companion objects also hold a `decompress` method directly to give you access to the
+`Pipe` in case you don't need to write code that can handle any number of decompression algorithms.
+```scala
+def decompressFileGzip[F[_]: Async](toDecompress: Path, writeTo: Path): F[Unit] =
+  Files[F]
+    .readAll(toCompress)
+    .through(GzipDecompressor.decompress())
+    .through(Files[F].writeAll(writeTo))
+    .compile
+    .drain
+```
 
 ### Archiving
 
