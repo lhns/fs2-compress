@@ -29,6 +29,12 @@ object Brotli4JCompressor {
       params: Encoder.Parameters = Encoder.Parameters.DEFAULT
   ): Brotli4JCompressor[F] =
     new Brotli4JCompressor(chunkSize, params)
+
+  def compress[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize,
+      params: Encoder.Parameters = Encoder.Parameters.DEFAULT
+  ): Pipe[F, Byte, Byte] =
+    make[F](chunkSize, params).compress
 }
 
 class Brotli4JDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {

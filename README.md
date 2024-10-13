@@ -110,6 +110,17 @@ def compressFile[F[_]: Async](toCompress: Path, writeTo: Path)(implicit compress
     .compile
     .drain
 ```
+For convenience the `_Compressor` companion objects also hold a `compress` method directly to give you access to the
+`Pipe` in case you don't need to write code that can handle any number of compression algorithms.
+```scala
+def compressFileGzip[F[_]: Async](toCompress: Path, writeTo: Path): F[Unit] =
+  Files[F]
+    .readAll(toCompress)
+    .through(GzipCompressor.compress())
+    .through(Files[F].writeAll(writeTo))
+    .compile
+    .drain
+```
 
 ### Decompression
 
