@@ -43,7 +43,7 @@ developers := List(
 )
 libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
-  "org.typelevel" %%% "munit-cats-effect" % V.munitCatsEffect % Test
+  "org.typelevel" %% "munit-cats-effect" % V.munitCatsEffect % Test
 )
 testFrameworks += new TestFramework("munit.Framework")
 libraryDependencies ++= virtualAxes.?.value.getOrElse(Seq.empty).collectFirst {
@@ -88,8 +88,8 @@ lazy val core = projectMatrix
   .settings(
     name := "fs2-compress",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-core" % V.fs2,
-      "org.typelevel" %%% "cats-effect" % V.catsEffect
+      "co.fs2" %% "fs2-core" % V.fs2,
+      "org.typelevel" %% "cats-effect" % V.catsEffect
     )
   )
   .jvmPlatform(scalaVersions)
@@ -101,7 +101,7 @@ lazy val gzip = projectMatrix
   .settings(
     name := "fs2-compress-gzip",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2
+      "co.fs2" %% "fs2-io" % V.fs2
     )
   )
   .jvmPlatform(scalaVersions)
@@ -113,7 +113,7 @@ lazy val zip = projectMatrix
   .settings(
     name := "fs2-compress-zip",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2
+      "co.fs2" %% "fs2-io" % V.fs2
     )
   )
   .jvmPlatform(scalaVersions)
@@ -124,7 +124,7 @@ lazy val zip4j = projectMatrix
   .settings(
     name := "fs2-compress-zip4j",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "net.lingala.zip4j" % "zip4j" % V.zip4j
     )
   )
@@ -136,7 +136,7 @@ lazy val tar = projectMatrix
   .settings(
     name := "fs2-compress-tar",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.apache.commons" % "commons-compress" % V.commonsCompress
     )
   )
@@ -148,7 +148,7 @@ lazy val zstd = projectMatrix
   .settings(
     name := "fs2-compress-zstd",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "com.github.luben" % "zstd-jni" % V.zstdJni
     )
   )
@@ -160,7 +160,7 @@ lazy val bzip2 = projectMatrix
   .settings(
     name := "fs2-compress-bzip2",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.apache.commons" % "commons-compress" % V.commonsCompress
     )
   )
@@ -172,7 +172,7 @@ lazy val brotli = projectMatrix
   .settings(
     name := "fs2-compress-brotli",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.brotli" % "dec" % V.brotli
     )
   )
@@ -184,7 +184,7 @@ lazy val brotli4j = projectMatrix
   .settings(
     name := "fs2-compress-brotli4j",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "com.aayushatharva.brotli4j" % "brotli4j" % V.brotli4j
     )
   )
@@ -196,7 +196,7 @@ lazy val lz4 = projectMatrix
   .settings(
     name := "fs2-compress-lz4",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.lz4" % "lz4-java" % V.lz4
     )
   )
