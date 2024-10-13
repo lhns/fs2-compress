@@ -9,8 +9,6 @@ import java.util
 import java.util.Base64
 
 class BrotliDecompressSuite extends CatsEffectSuite {
-  implicit val brotliDecompressor: BrotliDecompressor[IO] = BrotliDecompressor.make()
-
   test("brotli decompress") {
     val expected = "hello world!".getBytes(StandardCharsets.UTF_8)
     val compressedBase64 = "iwWAaGVsbG8gd29ybGQhAw=="
@@ -18,7 +16,7 @@ class BrotliDecompressSuite extends CatsEffectSuite {
     for {
       obtained <- Stream
         .chunk(Chunk.array(compressed))
-        .through(BrotliDecompressor[IO].decompress)
+        .through(BrotliDecompressor.decompress[IO]())
         .chunkAll
         .compile
         .lastOrError

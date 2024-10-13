@@ -8,17 +8,14 @@ import munit.CatsEffectSuite
 import java.util
 
 class ZstdRoundTripSuite extends CatsEffectSuite {
-  implicit val zstdCompressor: ZstdCompressor[IO] = ZstdCompressor.make()
-  implicit val zstdDecompressor: ZstdDecompressor[IO] = ZstdDecompressor.make()
-
   test("zstd round trip") {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(ZstdCompressor[IO].compress)
-        .through(ZstdDecompressor[IO].decompress)
+        .through(ZstdCompressor.compress[IO]())
+        .through(ZstdDecompressor.decompress[IO]())
         .chunkAll
         .compile
         .lastOrError
