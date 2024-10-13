@@ -1,5 +1,6 @@
 package de.lhns.fs2.compress
 
+import cats.effect.kernel.Resource.ExitCase
 import cats.effect.{Async, Deferred, Resource}
 import cats.syntax.functor._
 import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
@@ -125,9 +126,16 @@ class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
         def readEntries: Stream[F, (ArchiveEntry[Option, ZipEntry], Stream[F, Byte])] =
           Stream
             .resource(
-              Resource.make(
+              Resource.makeCase(
                 Async[F].blocking(Option(zipInputStream.getNextEntry))
-              )(_ => Async[F].blocking(zipInputStream.closeEntry()))
+              ) {
+                case (Some(entry), ExitCase.Succeeded) => Async[F].blocking(zipInputStream.closeEntry())
+                // If the resource is released for any other reason than success we don't need to close the entry
+                // as we will close the stream anyway.
+                // The `.closeEntry` method on ZipInputStream does not allow for interruption so we
+                // work around that by not calling it in the case of cancellation / error.
+                case _ => Async[F].unit
+              }
             )
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>
