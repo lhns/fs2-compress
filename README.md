@@ -216,6 +216,27 @@ def tarAndGzip[F[_]: Async](directory: Path, writeTo: Path)(implicit archiver: A
     .compile
     .drain
 ```
+If you don't need to write code that can support multiple different archive formats you can use the `archive` function
+on the `_Archiver` companion objects directly.
+
+```scala
+def zipDirectory[F[_]](directory: Path, writeTo: Path): F[Unit] =
+  Files[F]
+    .list(directory)
+    .evalMap { path =>
+      Files[F]
+        .size(path)
+        .map { size =>
+          // Name the entry based on the relative path between the source directory and the file
+          val name = directory.relativize(path).toString
+          ArchiveEntry[Some, Unit](name, uncompressedSize = Some(size)) -> Files[F].readAll(path)
+        }
+    }
+    .through(ZipArchiver.archive())
+    .through(Files[F].writeAll(writeTo))
+    .compile
+    .drain
+```
 
 ### Unarchiving
 
@@ -255,6 +276,21 @@ def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: Unarchiver[
     .readAll(archive)
     .through(decompressor.decompress)
     .through(archiver.unarchive)
+    .flatMap { case (entry, data) =>
+      data.through(Files[F].writeAll(writeTo.resolve(entry.name)))
+    }
+    .compile
+    .drain
+```
+If you don't need to write code that can support multiple different archive formats you can use the `unarchive` function
+on the `_Unarchiver` companion objects directly.
+
+```scala
+def decompressAndUnarchive[F[_]](archive: Path, writeTo: Path): F[Unit] =
+  Files[F]
+    .readAll(archive)
+    .through(GzipDecompressor.decompress())
+    .through(TarUnarchiver.unarchive())
     .flatMap { case (entry, data) =>
       data.through(Files[F].writeAll(writeTo.resolve(entry.name)))
     }
