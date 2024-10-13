@@ -33,6 +33,13 @@ object ZstdCompressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): ZstdCompressor[F] =
     new ZstdCompressor(level, workers, chunkSize)
+
+  def compress[F[_]: Async](
+      level: Option[Int] = None,
+      workers: Option[Int] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, Byte, Byte] =
+    make[F](level, workers, chunkSize).compress
 }
 
 class ZstdDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -54,4 +61,7 @@ object ZstdDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdDecompressor[F] =
     new ZstdDecompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

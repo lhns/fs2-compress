@@ -34,7 +34,14 @@ object Bzip2Compressor {
   def make[F[_]: Async](
       blockSize: Option[Int] = None,
       chunkSize: Int = Defaults.defaultChunkSize
-  ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
+  ): Bzip2Compressor[F] =
+    new Bzip2Compressor(blockSize, chunkSize)
+
+  def compress[F[_]: Async](
+      blockSize: Option[Int] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, Byte, Byte] =
+    make[F](blockSize, chunkSize).compress
 }
 
 class Bzip2Decompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -56,4 +63,7 @@ object Bzip2Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
     new Bzip2Decompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }
