@@ -71,9 +71,16 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
 
               Stream
                 .resource(
-                  Resource.make(
+                  Resource.makeCase(
                     Async[F].blocking(zipOutputStream.putNextEntry(entry))
-                  )(_ => Async[F].blocking(zipOutputStream.closeEntry()))
+                  ) {
+                    case (_, ExitCase.Succeeded) => Async[F].blocking(zipOutputStream.closeEntry())
+                    // If the resource is released for any other reason than success we don't need to close the entry
+                    // as we will close the stream anyway.
+                    // The `.closeEntry` method on ZipOutputStream does not allow for interruption so we
+                    // work around that by not calling it in the case of cancellation / error.
+                    case _ => Async[F].unit
+                  }
                 )
                 .flatMap(_ =>
                   stream
