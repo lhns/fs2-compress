@@ -51,7 +51,7 @@ class ZipSuite extends CatsEffectSuite {
         .compile
         .lastOrError
     } yield {
-      assert(obtained.head == ("file1.txt", "Hello world!"))
+      assert(obtained(0) == ("file1.txt", "Hello world!"))
       assert(obtained(1) == ("subdir/file2.txt", "Hello from subdir!"))
     }
   }
