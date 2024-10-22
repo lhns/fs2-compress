@@ -6,11 +6,55 @@ import fs2.{Chunk, Stream}
 import munit.CatsEffectSuite
 
 import java.util
+import java.util.Base64
 
-class ZipRoundTripSuite extends CatsEffectSuite {
+class ZipSuite extends CatsEffectSuite {
   implicit val zipArchiverSome: ZipArchiver[IO, Some] = ZipArchiver.make()
   implicit val zipArchiver: ZipArchiver[IO, Option] = ZipArchiver.make()
   implicit val zipUnarchiver: ZipUnarchiver[IO] = ZipUnarchiver.make()
+
+  test("zip unarchive") {
+    /* Created on an Ubuntu system with:
+     * {{{
+     *   mkdir ziptempdir
+     *   cd ziptempdir
+     *   echo -n 'Hello world!' > file1.txt
+     *   mkdir -p subdir
+     *   echo -n 'Hello from subdir!' > subdir/file2.txt
+     *   zip - file1.txt subdir/file2.txt | base64; echo
+     *   cd ..
+     *   rm -rf ziptempdir
+     * }}}
+     */
+    val zipArchive = Chunk.array(
+      Base64.getDecoder
+        .decode(
+          "UEsDBBQACAAIAC11SlkAAAAAAAAAAAwAAAAJABwAZmlsZTEudHh0VVQJAAN2ywdndssHZ3V4CwAB" +
+            "BOgDAAAE6AMAAPNIzcnJVyjPL8pJUQQAUEsHCJUZhRsOAAAADAAAAFBLAwQUAAgACAAtdUpZAAAA" +
+            "AAAAAAASAAAAEAAcAHN1YmRpci9maWxlMi50eHRVVAkAA3bLB2d2ywdndXgLAAEE6AMAAAToAwAA" +
+            "80jNyclXSCvKz1UoLk1KySxSBABQSwcIe/g7bxQAAAASAAAAUEsBAh4DFAAIAAgALXVKWZUZhRsO" +
+            "AAAADAAAAAkAGAAAAAAAAQAAALSBAAAAAGZpbGUxLnR4dFVUBQADdssHZ3V4CwABBOgDAAAE6AMA" +
+            "AFBLAQIeAxQACAAIAC11Sll7+DtvFAAAABIAAAAQABgAAAAAAAEAAAC0gWEAAABzdWJkaXIvZmls" +
+            "ZTIudHh0VVQFAAN2ywdndXgLAAEE6AMAAAToAwAAUEsFBgAAAAACAAIApQAAAM8AAAAAAA=="
+        )
+    )
+    for {
+      obtained <- Stream
+        .chunk(zipArchive)
+        .through(ZipUnarchiver[IO].unarchive)
+        .flatMap { case (archiveEntry, stream) =>
+          stream
+            .chunkAll
+            .map(content => archiveEntry.name -> new String(content.toArray))
+        }
+        .chunkAll
+        .compile
+        .lastOrError
+    } yield {
+      assert(obtained.head == ("file1.txt", "Hello world!"))
+      assert(obtained(1) == ("subdir/file2.txt", "Hello from subdir!"))
+    }
+  }
 
   test("zip round trip") {
     for {
