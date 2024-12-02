@@ -5,11 +5,28 @@ import cats.effect.std.Random
 import fs2.{Chunk, Stream}
 import munit.CatsEffectSuite
 
+import java.nio.charset.StandardCharsets.UTF_8
 import java.util
+import java.util.Base64
 
-class Lz4RoundTripSuite extends CatsEffectSuite {
+class Lz4Suite extends CatsEffectSuite {
   implicit val lz4Compressor: Lz4Compressor[IO] = Lz4Compressor.make()
   implicit val lz4Decompressor: Lz4Decompressor[IO] = Lz4Decompressor.make()
+
+  test("lz4 decompress") {
+    val clear = Chunk.array("Hello world!".getBytes(UTF_8))
+    val compressed = Chunk.array(
+      Base64.getDecoder.decode("BCJNGGRApwwAAIBIZWxsbyB3b3JsZCEAAAAAcXerxA==")
+    )
+    for {
+      obtained <- Stream
+        .chunk(compressed)
+        .through(Lz4Decompressor[IO].decompress)
+        .chunkAll
+        .compile
+        .lastOrError
+    } yield assert(clear == obtained)
+  }
 
   test("lz4 round trip") {
     for {
