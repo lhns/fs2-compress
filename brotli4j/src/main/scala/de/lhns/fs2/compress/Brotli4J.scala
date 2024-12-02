@@ -29,6 +29,12 @@ object Brotli4JCompressor {
       params: Encoder.Parameters = Encoder.Parameters.DEFAULT
   ): Brotli4JCompressor[F] =
     new Brotli4JCompressor(chunkSize, params)
+
+  def compress[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize,
+      params: Encoder.Parameters = Encoder.Parameters.DEFAULT
+  ): Pipe[F, Byte, Byte] =
+    make[F](chunkSize, params).compress
 }
 
 class Brotli4JDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -47,10 +53,13 @@ class Brotli4JDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompr
 
 object Brotli4JDecompressor {
   // Defined as DEFAULT_BUFFER_SIZE in BrotliInputStream, but isn't public
-  def defaultChunkSize: Int = 16384
+  val defaultChunkSize: Int = 16384
 
   def apply[F[_]](implicit instance: Brotli4JDecompressor[F]): Brotli4JDecompressor[F] = instance
 
   def make[F[_]: Async](chunkSize: Int = defaultChunkSize): Brotli4JDecompressor[F] =
     new Brotli4JDecompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }
