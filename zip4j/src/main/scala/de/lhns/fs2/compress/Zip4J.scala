@@ -104,6 +104,12 @@ object Zip4JArchiver {
       chunkSize: Int = Defaults.defaultChunkSize
   ): Zip4JArchiver[F] =
     new Zip4JArchiver(password, chunkSize)
+
+  def archive[F[_]: Async](
+      password: => Option[String] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] =
+    make[F](password, chunkSize).archive
 }
 
 class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, LocalFileHeader] {
@@ -154,4 +160,9 @@ object Zip4JUnarchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Zip4JUnarchiver[F] =
     new Zip4JUnarchiver(chunkSize)
+
+  def unarchive[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, Byte, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] =
+    make[F](chunkSize).unarchive
 }
