@@ -15,6 +15,7 @@ val V = new {
   val logbackClassic = "1.5.16"
   val lz4 = "1.8.0"
   val munitCatsEffect = "2.0.0"
+  val snappy = "1.1.10.7"
   val zip4j = "2.11.5"
   val zstdJni = "1.5.6-9"
 }
@@ -86,6 +87,7 @@ lazy val root: Project =
     .aggregate(brotli.projectRefs: _*)
     .aggregate(brotli4j.projectRefs: _*)
     .aggregate(lz4.projectRefs: _*)
+    .aggregate(snappy.projectRefs: _*)
 
 lazy val core = projectMatrix
   .in(file("core"))
@@ -212,6 +214,19 @@ lazy val lz4 = projectMatrix
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
       "org.lz4" % "lz4-java" % V.lz4
+    )
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val snappy = projectMatrix
+  .in(file("snappy"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-snappy",
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+      "org.xerial.snappy" % "snappy-java" % V.snappy
     )
   )
   .jvmPlatform(scalaVersions)
