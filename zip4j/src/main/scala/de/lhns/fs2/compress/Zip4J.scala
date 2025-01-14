@@ -124,7 +124,8 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
             .resource(
               Resource.make(
                 Async[F].blocking(Option(zipInputStream.getNextEntry))
-              )(_ => Async[F].unit // .blocking(zipInputStream.closeEntry())
+              )(_ =>
+                Async[F].unit // .blocking(zipInputStream.closeEntry())
               )
             )
             .flatMap(Stream.fromOption[F](_))
