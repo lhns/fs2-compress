@@ -23,6 +23,7 @@ libraryDependencies += "de.lhns" %% "fs2-compress-zstd" % "2.2.1"
 libraryDependencies += "de.lhns" %% "fs2-compress-brotli" % "2.2.1"
 libraryDependencies += "de.lhns" %% "fs2-compress-brotli4j" % "2.2.1"
 libraryDependencies += "de.lhns" %% "fs2-compress-lz4" % "2.2.1"
+libraryDependencies += "de.lhns" %% "fs2-compress-snappy" % "2.2.1"
 ```
 
 ## Concepts
