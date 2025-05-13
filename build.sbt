@@ -57,7 +57,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
   publishTo := sonatypePublishToBundle.value,
-  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  sonatypeCredentialHost := Sonatype.sonatypeCentralHost,
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")
     password <- sys.env.get("SONATYPE_PASSWORD")
