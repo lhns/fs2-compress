@@ -16,7 +16,7 @@ val V = new {
   val logbackClassic = "1.5.18"
   val lz4 = "1.8.0"
   val munitCatsEffect = "2.1.0"
-  val snappy = "1.1.10.7"
+  val snappy = "1.1.10.8"
   val zip4j = "2.11.5"
   val zstdJni = "1.5.7-3"
 }
