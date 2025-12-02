@@ -9,17 +9,14 @@ import munit.CatsEffectSuite
 import java.util
 
 class GzipRoundTripSuite extends CatsEffectSuite {
-  implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make()
-  implicit val gzipDecompressor: GzipDecompressor[IO] = GzipDecompressor.make()
-
   test("gzip round trip") {
     for {
       random <- Random.scalaUtilRandom[IO]
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(GzipCompressor[IO].compress)
-        .through(GzipDecompressor[IO].decompress)
+        .through(GzipCompressor.compress[IO]())
+        .through(GzipDecompressor.decompress[IO]())
         .chunkAll
         .compile
         .lastOrError
