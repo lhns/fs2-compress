@@ -27,6 +27,9 @@ object Lz4Compressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): Lz4Compressor[F] =
     new Lz4Compressor(chunkSize)
+
+  def compress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).compress
 }
 
 class Lz4Decompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -48,4 +51,7 @@ object Lz4Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Lz4Decompressor[F] =
     new Lz4Decompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

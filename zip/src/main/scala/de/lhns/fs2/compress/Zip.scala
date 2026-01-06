@@ -107,6 +107,16 @@ object ZipArchiver {
     */
   def makeStored[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Some] =
     make[F, Some](ZipOutputStream.STORED, chunkSize)
+
+  def archiveDeflated[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, (ArchiveEntry[Option, Any], Stream[F, Byte]), Byte] =
+    makeDeflated[F](chunkSize).archive
+
+  def archiveStored[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] =
+    makeStored[F](chunkSize).archive
 }
 
 class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, ZipEntry] {

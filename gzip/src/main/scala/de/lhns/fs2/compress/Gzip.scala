@@ -22,6 +22,13 @@ object GzipCompressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): GzipCompressor[F] =
     new GzipCompressor(deflateLevel, deflateStrategy, chunkSize)
+
+  def compress[F[_]: Async: Compression](
+      deflateLevel: Option[Int] = None,
+      deflateStrategy: Option[Int] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, Byte, Byte] =
+    make[F](deflateLevel, deflateStrategy, chunkSize).compress
 }
 
 class GzipDecompressor[F[_]: Async: Compression] private (chunkSize: Int) extends Decompressor[F] {
@@ -34,4 +41,7 @@ object GzipDecompressor {
 
   def make[F[_]: Async: Compression](chunkSize: Int = Defaults.defaultChunkSize): GzipDecompressor[F] =
     new GzipDecompressor(chunkSize)
+
+  def decompress[F[_]: Async: Compression](chunkSize: Int = Defaults.defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }

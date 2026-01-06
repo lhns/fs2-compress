@@ -25,4 +25,7 @@ object BrotliDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = defaultChunkSize): BrotliDecompressor[F] =
     new BrotliDecompressor(chunkSize)
+
+  def decompress[F[_]: Async](chunkSize: Int = defaultChunkSize): Pipe[F, Byte, Byte] =
+    make[F](chunkSize).decompress
 }
