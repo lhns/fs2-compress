@@ -144,6 +144,7 @@ lazy val zip4j = projectMatrix
 lazy val tar = projectMatrix
   .in(file("tar"))
   .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(gzip % "test")
   .settings(commonSettings)
   .settings(
     name := "fs2-compress-tar",

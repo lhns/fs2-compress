@@ -22,6 +22,9 @@ class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.P
 }
 
 object Brotli4JCompressor {
+  // Trigger loading the native library.
+  new Brotli4jLoader()
+
   def apply[F[_]](implicit instance: Brotli4JCompressor[F]): Brotli4JCompressor[F] = instance
 
   def make[F[_]: Async](
@@ -46,6 +49,9 @@ class Brotli4JDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompr
 }
 
 object Brotli4JDecompressor {
+  // Trigger loading the native library.
+  new Brotli4jLoader()
+
   // Defined as DEFAULT_BUFFER_SIZE in BrotliInputStream, but isn't public
   def defaultChunkSize: Int = 16384
 
