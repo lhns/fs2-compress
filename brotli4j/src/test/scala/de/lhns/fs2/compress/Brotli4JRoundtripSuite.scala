@@ -8,8 +8,6 @@ import munit.CatsEffectSuite
 import java.util
 
 class Brotli4JRoundtripSuite extends CatsEffectSuite {
-  implicit val brotliCompressor: Brotli4JCompressor[IO] = Brotli4JCompressor.make()
-  implicit val brotliDecompressor: Brotli4JDecompressor[IO] = Brotli4JDecompressor.make()
 
   test("brotli round trip") {
     for {
@@ -17,8 +15,8 @@ class Brotli4JRoundtripSuite extends CatsEffectSuite {
       expected <- random.nextBytes(1024 * 1024)
       obtained <- Stream
         .chunk(Chunk.array(expected))
-        .through(Brotli4JCompressor[IO].compress)
-        .through(Brotli4JDecompressor[IO].decompress)
+        .through(Brotli4JCompressor.compress[IO]())
+        .through(Brotli4JDecompressor.decompress[IO]())
         .chunkAll
         .compile
         .lastOrError

@@ -94,6 +94,11 @@ object TarArchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
     new TarArchiver(chunkSize)
+
+  def archive[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] =
+    make[F](chunkSize).archive
 }
 
 class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
@@ -139,4 +144,9 @@ object TarUnarchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
     new TarUnarchiver(chunkSize)
+
+  def unarchive[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize
+  ): Pipe[F, Byte, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] =
+    make[F](chunkSize).unarchive
 }
