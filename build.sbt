@@ -17,7 +17,7 @@ val V = new {
   val lz4 = "1.8.1"
   val munitCatsEffect = "2.2.0"
   val snappy = "1.1.10.8"
-  val zip4j = "2.11.5"
+  val zip4j = "2.11.6"
   val zstdJni = "1.5.7-6"
 }
 
