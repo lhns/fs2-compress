@@ -10,14 +10,14 @@ val V = new {
   val betterMonadicFor = "0.3.1"
   val brotli = "0.1.2"
   val brotli4j = "1.20.0"
-  val catsEffect = "3.6.3"
+  val catsEffect = "3.7.0"
   val commonsCompress = "1.28.0"
-  val fs2 = "3.12.2"
+  val fs2 = "3.13.0"
   val logbackClassic = "1.5.22"
   val lz4 = "1.8.1"
-  val munitCatsEffect = "2.1.0"
+  val munitCatsEffect = "2.2.0"
   val snappy = "1.1.10.8"
-  val zip4j = "2.11.5"
+  val zip4j = "2.11.6"
   val zstdJni = "1.5.7-7"
 }
 
