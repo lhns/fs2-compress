@@ -109,27 +109,20 @@ class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
         )
       }
       .flatMap { tarInputStream =>
-        def readEntries: Stream[F, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] =
-          Stream
-            .eval(Async[F].blocking(Option(tarInputStream.getNextEntry)))
-            .flatMap(Stream.fromOption[F](_))
-            .flatMap { entry =>
-              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
+        Stream
+          .repeatEval(Async[F].blocking(Option(tarInputStream.getNextEntry)))
+          .unNoneTerminate
+          .map { entry =>
+            val archiveEntry = ArchiveEntry.fromUnderlying(entry)
 
-              Stream
-                .eval(Deferred[F, Unit])
-                .flatMap { deferred =>
-                  Stream.emit(
-                    readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false) ++
-                      Stream.exec(deferred.complete(()).void)
-                  ) ++
-                    Stream.exec(deferred.get)
-                }
-                .map(stream => (archiveEntry, stream)) ++
-                readEntries
-            }
-
-        readEntries
+            archiveEntry -> Stream
+              .eval(Deferred[F, Unit])
+              .flatMap { deferred =>
+                (readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false) ++
+                  Stream.exec(deferred.complete(()).void)) ++
+                  Stream.exec(deferred.get)
+              }
+          }
       }
   }
 }

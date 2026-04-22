@@ -54,6 +54,13 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     case VirtualAxis.ScalaVersionAxis(version, _) if version.startsWith("2.") =>
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
   },
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-feature",
+    "-language:higherKinds",
+    // Silence internal deprecation warnings
+    "-Wconf:cat=deprecation&origin=de\\.lhns\\.fs2\\.compress\\..*:s"
+  ),
   Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
@@ -97,7 +104,8 @@ lazy val core = projectMatrix
     name := "fs2-compress",
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-core" % V.fs2,
-      "org.typelevel" %%% "cats-effect" % V.catsEffect
+      "org.typelevel" %%% "cats-effect" % V.catsEffect,
+      "co.fs2" %%% "fs2-io" % V.fs2 % Test
     )
   )
   .jvmPlatform(scalaVersions)

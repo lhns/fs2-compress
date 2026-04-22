@@ -119,33 +119,28 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
         )
       }
       .flatMap { zipInputStream =>
-        def readEntries: Stream[F, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] =
-          Stream
-            .resource(
-              Resource.make(
-                Async[F].blocking(Option(zipInputStream.getNextEntry))
-              )(_ =>
-                Async[F].unit // .blocking(zipInputStream.closeEntry())
-              )
+        Stream
+          .resource(
+            Resource.make(
+              Async[F].blocking(Option(zipInputStream.getNextEntry))
+            )(_ =>
+              Async[F].unit // .blocking(zipInputStream.closeEntry())
             )
-            .flatMap(Stream.fromOption[F](_))
-            .flatMap { entry =>
-              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
+          )
+          .repeat
+          .unNoneTerminate
+          .map { entry =>
+            val archiveEntry = ArchiveEntry.fromUnderlying(entry)
 
-              Stream
-                .eval(Deferred[F, Unit])
-                .flatMap { deferred =>
-                  Stream.emit(
-                    readInputStream(Async[F].pure[InputStream](zipInputStream), chunkSize, closeAfterUse = false) ++
-                      Stream.exec(deferred.complete(()).void)
-                  ) ++
-                    Stream.exec(deferred.get)
-                }
-                .map(stream => (archiveEntry, stream)) ++
-                readEntries
-            }
+            archiveEntry -> Stream
+              .eval(Deferred[F, Unit])
+              .flatMap { deferred =>
+                (readInputStream(Async[F].pure[InputStream](zipInputStream), chunkSize, closeAfterUse = false) ++
+                  Stream.exec(deferred.complete(()).void)) ++
+                  Stream.exec(deferred.get)
+              }
 
-        readEntries
+          }
       }
   }
 }
