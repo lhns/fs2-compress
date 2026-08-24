@@ -61,29 +61,19 @@ object Tar {
 
 class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          new TarArchiveOutputStream(outputStream)
-        })(s => Async[F].blocking(s.close()))
-        .use { tarOutputStream =>
-          stream
-            .flatMap { case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[TarArchiveEntry]
+    OutputStreams.readWrappedOutputStream[F, TarArchiveOutputStream](chunkSize) { outputStream =>
+      new TarArchiveOutputStream(outputStream)
+    } { tarOutputStream =>
+      stream
+        .flatMap { case (archiveEntry, stream) =>
+          def entry = archiveEntry.underlying[TarArchiveEntry]
 
-              Stream
-                .resource(
-                  Resource.make(
-                    Async[F].blocking(tarOutputStream.putArchiveEntry(entry))
-                  )(_ => Async[F].blocking(tarOutputStream.closeArchiveEntry()))
-                )
-                .flatMap(_ =>
-                  stream
-                    .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false))
-                )
-            }
-            .compile
-            .drain
+          // These writes happen in the stream rather than in a Resource so that they can be
+          // cancelled. See OutputStreams.
+          Stream.exec(Async[F].interruptible(tarOutputStream.putArchiveEntry(entry))) ++
+            stream
+              .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(tarOutputStream.closeArchiveEntry()))
         }
     }
   }

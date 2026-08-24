@@ -1,4 +1,4 @@
-lazy val scalaVersions = Seq("3.3.7", "2.13.18", "2.12.21")
+lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
 
 ThisBuild / scalaVersion := scalaVersions.head
 ThisBuild / versionScheme := Some("early-semver")
@@ -9,16 +9,16 @@ name := (core.projectRefs.head / name).value
 val V = new {
   val betterMonadicFor = "0.3.1"
   val brotli = "0.1.2"
-  val brotli4j = "1.22.0"
+  val brotli4j = "1.23.0"
   val catsEffect = "3.7.0"
   val commonsCompress = "1.28.0"
   val fs2 = "3.13.0"
-  val logbackClassic = "1.5.32"
+  val logbackClassic = "1.6.3"
   val lz4 = "1.8.1"
   val munitCatsEffect = "2.2.0"
   val snappy = "1.1.10.8"
   val zip4j = "2.11.6"
-  val zstdJni = "1.5.7-7"
+  val zstdJni = "1.5.7-15"
 }
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
@@ -108,7 +108,11 @@ lazy val core = projectMatrix
       "co.fs2" %%% "fs2-io" % V.fs2 % Test
     )
   )
-  .jvmPlatform(scalaVersions)
+  // fs2-io is JVM only here: OutputStreams wraps fs2.io.readOutputStream, which does not exist on JS.
+  .jvmPlatform(
+    scalaVersions,
+    Seq(libraryDependencies += "co.fs2" %% "fs2-io" % V.fs2)
+  )
   .jsPlatform(scalaVersions)
 
 lazy val gzip = projectMatrix

@@ -66,31 +66,23 @@ object Zip4J {
 
 class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          val zipOutputStream = new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
-          zipOutputStream
-        })(zipOutputStream => Async[F].blocking(zipOutputStream.close()))
-        .use { zipOutputStream =>
-          stream
-            .through(checkUncompressedSize)
-            .flatMap { case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[ZipParameters]
+    OutputStreams.readWrappedOutputStream[F, ZipOutputStream](chunkSize) { outputStream =>
+      new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
+    } { zipOutputStream =>
+      stream
+        .through(checkUncompressedSize)
+        .flatMap { case (archiveEntry, stream) =>
+          def entry = archiveEntry.underlying[ZipParameters]
 
-              Stream
-                .resource(
-                  Resource.make(
-                    Async[F].blocking(zipOutputStream.putNextEntry(entry))
-                  )(_ => Async[F].blocking(zipOutputStream.closeEntry()))
-                )
-                .flatMap(_ =>
-                  stream
-                    .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false))
-                )
-            }
-            .compile
-            .drain
+          // These writes happen in the stream rather than in a Resource so that they can be
+          // cancelled. See OutputStreams.
+          Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
+            stream
+              .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible {
+              zipOutputStream.closeEntry()
+              ()
+            })
         }
     }
   }
@@ -120,14 +112,9 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
       }
       .flatMap { zipInputStream =>
         Stream
-          .resource(
-            Resource.make(
-              Async[F].blocking(Option(zipInputStream.getNextEntry))
-            )(_ =>
-              Async[F].unit // .blocking(zipInputStream.closeEntry())
-            )
-          )
-          .repeat
+          // There is no closeEntry() finalizer here. getNextEntry() already reads to the end of
+          // the previous entry, and a drain that cannot be interrupted would block cancellation.
+          .repeatEval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
           .unNoneTerminate
           .map { entry =>
             val archiveEntry = ArchiveEntry.fromUnderlying(entry)
@@ -139,7 +126,6 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
                   Stream.exec(deferred.complete(()).void)) ++
                   Stream.exec(deferred.get)
               }
-
           }
       }
   }
