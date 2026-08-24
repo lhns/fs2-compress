@@ -12,7 +12,7 @@ import java.io.OutputStream
 class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.Parameters) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream.exec(Async[F].blocking(Brotli4jLoader.ensureAvailability())).covaryOutput[Byte] ++
-      stream.through(OutputStreams.compress[F](chunkSize)(new BrotliOutputStream(_, params)))
+      stream.through(OutputStreams.throughOutputStream[F](chunkSize)(new BrotliOutputStream(_, params)))
   }
 }
 

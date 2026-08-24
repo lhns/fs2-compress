@@ -9,7 +9,7 @@ import java.io.{BufferedInputStream, OutputStream}
 
 class Bzip2Compressor[F[_]: Async] private (blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] =
-    OutputStreams.compress[F](chunkSize) { outputStream =>
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
       blockSize.fold(
         new BZip2CompressorOutputStream(outputStream)
       )(

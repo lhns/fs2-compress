@@ -9,7 +9,7 @@ import java.io.{BufferedInputStream, OutputStream}
 
 class Lz4Compressor[F[_]: Async] private (chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] =
-    OutputStreams.compress[F](chunkSize) { outputStream =>
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
       new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
     }
 }

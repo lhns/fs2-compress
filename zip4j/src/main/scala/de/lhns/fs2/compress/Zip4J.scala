@@ -66,7 +66,7 @@ object Zip4J {
 
 class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    OutputStreams.write[F, ZipOutputStream](chunkSize) { outputStream =>
+    OutputStreams.readWrappedOutputStream[F, ZipOutputStream](chunkSize) { outputStream =>
       new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
     } { zipOutputStream =>
       stream

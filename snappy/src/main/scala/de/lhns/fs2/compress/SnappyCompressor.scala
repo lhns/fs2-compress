@@ -15,7 +15,7 @@ import java.io.{BufferedInputStream, InputStream, OutputStream}
 
 class SnappyCompressor[F[_]: Async] private (chunkSize: Int, mode: SnappyCompressor.WriteMode) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] =
-    OutputStreams.compress[F](chunkSize)(mode.fromOutputStream)
+    OutputStreams.throughOutputStream[F](chunkSize)(mode.fromOutputStream)
 }
 
 object SnappyCompressor {

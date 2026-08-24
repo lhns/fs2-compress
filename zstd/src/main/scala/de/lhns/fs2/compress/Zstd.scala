@@ -10,7 +10,7 @@ import java.io.{BufferedInputStream, OutputStream}
 class ZstdCompressor[F[_]: Async] private (level: Option[Int], workers: Option[Int], chunkSize: Int)
     extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] =
-    OutputStreams.compress[F](chunkSize) { outputStream =>
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
       val zstdOutputStream = new ZstdOutputStream(outputStream)
       level.foreach(zstdOutputStream.setLevel)
       workers.foreach(zstdOutputStream.setWorkers)

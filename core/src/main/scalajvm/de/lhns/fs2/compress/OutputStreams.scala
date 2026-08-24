@@ -14,13 +14,15 @@ import java.io.OutputStream
   */
 private[compress] object OutputStreams {
 
-  /** A byte stream of everything `write` writes into the `OutputStream` built by `mkOutputStream`. */
-  def write[F[_]: Async, A <: OutputStream](
+  /** Like `fs2.io.readOutputStream`, but the stream handed to `write` is `wrapOutputStream` applied to the pipe, and
+    * closing it stays cancelable.
+    */
+  def readWrappedOutputStream[F[_]: Async, A <: OutputStream](
       chunkSize: Int
-  )(mkOutputStream: OutputStream => A)(write: A => Stream[F, Nothing]): Stream[F, Byte] =
+  )(wrapOutputStream: OutputStream => A)(write: A => Stream[F, Nothing]): Stream[F, Byte] =
     readOutputStream[F](chunkSize) { pipe =>
       Resource
-        .make(Async[F].blocking(mkOutputStream(pipe))) { outputStream =>
+        .make(Async[F].blocking(wrapOutputStream(pipe))) { outputStream =>
           // Only reached when `write` was cancelled or failed before closing the stream itself.
           // Closing the pipe first is what keeps this from blocking: writes to a closed pipe are
           // discarded rather than backpressured, so `close()` returns instead of waiting on a
@@ -40,11 +42,11 @@ private[compress] object OutputStreams {
         }
     }
 
-  /** [[write]] for a `Compressor`: the input goes straight into the `OutputStream`. */
-  def compress[F[_]: Async](
+  /** [[readWrappedOutputStream]] as a `Pipe`, for a codec that just takes the input bytes as they come. */
+  def throughOutputStream[F[_]: Async](
       chunkSize: Int
-  )(mkOutputStream: OutputStream => OutputStream): Pipe[F, Byte, Byte] = { stream =>
-    write[F, OutputStream](chunkSize)(mkOutputStream) { outputStream =>
+  )(wrapOutputStream: OutputStream => OutputStream): Pipe[F, Byte, Byte] = { stream =>
+    readWrappedOutputStream[F, OutputStream](chunkSize)(wrapOutputStream) { outputStream =>
       stream.through(writeOutputStream(Async[F].pure(outputStream), closeAfterUse = false))
     }
   }

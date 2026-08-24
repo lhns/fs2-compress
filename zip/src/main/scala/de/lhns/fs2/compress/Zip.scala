@@ -55,7 +55,7 @@ object Zip {
 
 class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int) extends Archiver[F, Size] {
   override def archive: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), Byte] = { stream =>
-    OutputStreams.write[F, ZipOutputStream](chunkSize) { outputStream =>
+    OutputStreams.readWrappedOutputStream[F, ZipOutputStream](chunkSize) { outputStream =>
       val zipOutputStream = new ZipOutputStream(outputStream)
       zipOutputStream.setMethod(method)
       zipOutputStream

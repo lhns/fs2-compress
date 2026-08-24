@@ -61,7 +61,7 @@ object Tar {
 
 class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    OutputStreams.write[F, TarArchiveOutputStream](chunkSize) { outputStream =>
+    OutputStreams.readWrappedOutputStream[F, TarArchiveOutputStream](chunkSize) { outputStream =>
       new TarArchiveOutputStream(outputStream)
     } { tarOutputStream =>
       stream
