@@ -14,16 +14,8 @@ class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.P
     Stream.exec(Async[F].blocking(Brotli4jLoader.ensureAvailability())).covaryOutput[Byte] ++
       readOutputStream[F](chunkSize) { outputStream =>
         Resource
-          .make(Async[F].blocking[OutputStream](new BrotliOutputStream(outputStream, params)))(os =>
-            // Safety net for the paths where the stream above did not get to close `os` itself:
-            // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
-            // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
-            // completion and still frees what it owns, instead of blocking forever on a consumer that
-            // stopped draining (#113). Any genuine close error has already surfaced from the stream.
-            Async[F].void(Async[F].attempt(Async[F].blocking {
-              outputStream.close()
-              os.close()
-            }))
+          .make(Async[F].blocking[OutputStream](new BrotliOutputStream(outputStream, params)))(
+            OutputStreams.abandoning[F](outputStream)
           )
           .use { os =>
             (stream

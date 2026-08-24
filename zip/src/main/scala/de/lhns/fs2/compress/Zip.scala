@@ -61,17 +61,7 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
           val zipOutputStream = new ZipOutputStream(outputStream)
           zipOutputStream.setMethod(method)
           zipOutputStream
-        })(os =>
-          // Safety net for the paths where the stream above did not get to close `os` itself:
-          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
-          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
-          // completion and still frees what it owns, instead of blocking forever on a consumer that
-          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
-          Async[F].void(Async[F].attempt(Async[F].blocking {
-            outputStream.close()
-            os.close()
-          }))
-        )
+        })(OutputStreams.abandoning[F](outputStream))
         .use { zipOutputStream =>
           (stream
             .through(checkUncompressedSize)
