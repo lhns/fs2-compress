@@ -24,6 +24,13 @@ object Brotli4JCompressor {
       params: Encoder.Parameters = Encoder.Parameters.DEFAULT
   ): Brotli4JCompressor[F] =
     new Brotli4JCompressor(chunkSize, params)
+
+  /** A Brotli4JCompressor built with all defaults, to be imported where an instance is needed:
+    * `import Brotli4JCompressor.default._`
+    */
+  object default {
+    implicit def defaultBrotli4JCompressor[F[_]: Async]: Brotli4JCompressor[F] = make()
+  }
 }
 
 class Brotli4JDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -48,4 +55,11 @@ object Brotli4JDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = defaultChunkSize): Brotli4JDecompressor[F] =
     new Brotli4JDecompressor(chunkSize)
+
+  /** A Brotli4JDecompressor built with all defaults, to be imported where an instance is needed:
+    * `import Brotli4JDecompressor.default._`
+    */
+  object default {
+    implicit def defaultBrotli4JDecompressor[F[_]: Async]: Brotli4JDecompressor[F] = make()
+  }
 }

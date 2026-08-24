@@ -22,6 +22,16 @@ object GzipCompressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): GzipCompressor[F] =
     new GzipCompressor(deflateLevel, deflateStrategy, chunkSize)
+
+  /** A GzipCompressor built with all defaults, to be imported where an instance is needed:
+    * `import GzipCompressor.default._`
+    *
+    * Gzip also needs a `Compression[F]`, which `import fs2.io.compression._` provides. That import is required on
+    * Scala.js, where fs2 offers no instance otherwise.
+    */
+  object default {
+    implicit def defaultGzipCompressor[F[_]: Async: Compression]: GzipCompressor[F] = make()
+  }
 }
 
 class GzipDecompressor[F[_]: Async: Compression] private (chunkSize: Int) extends Decompressor[F] {
@@ -34,4 +44,13 @@ object GzipDecompressor {
 
   def make[F[_]: Async: Compression](chunkSize: Int = Defaults.defaultChunkSize): GzipDecompressor[F] =
     new GzipDecompressor(chunkSize)
+
+  /** A GzipDecompressor built with all defaults, to be imported where an instance is needed:
+    * `import GzipDecompressor.default._`
+    *
+    * Gzip also needs a `Compression[F]`, which `import fs2.io.compression._` provides.
+    */
+  object default {
+    implicit def defaultGzipDecompressor[F[_]: Async: Compression]: GzipDecompressor[F] = make()
+  }
 }

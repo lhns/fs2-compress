@@ -95,14 +95,19 @@ Compression can be abstracted over using the `Compressor` typeclass. Adapt the f
 ```scala
 import cats.effect.Async
 import de.lhns.fs2.compress._
+import de.lhns.fs2.compress.GzipCompressor.default._
+import fs2.compression.Compression
+import fs2.io.compression._ // gzip needs a Compression[F]; the other codecs do not
 import fs2.io.file.{Files, Path}
 
-// implicit def bzip2[F[_]: Async]: Compressor[F] = Bzip2Compressor.make()
-// implicit def lz4[F[_]: Async]: Compressor[F] = Lz4Compressor.make()
-// implicit def zstd[F[_]: Async]: Compressor[F] = ZstdCompressor.make()
-implicit def gzip[F[_]: Async]: Compressor[F] = GzipCompressor.make()
+// import de.lhns.fs2.compress.Bzip2Compressor.default._
+// import de.lhns.fs2.compress.Lz4Compressor.default._
+// import de.lhns.fs2.compress.ZstdCompressor.default._
+// import de.lhns.fs2.compress.SnappyCompressor.framed._
 
-def compressFile[F[_]: Async](toCompress: Path, writeTo: Path)(implicit compressor: Compressor[F]): F[Unit] =
+def compressFile[F[_]: Async: Compression](toCompress: Path, writeTo: Path)(implicit
+    compressor: Compressor[F]
+): F[Unit] =
   Files[F]
     .readAll(toCompress)
     .through(compressor.compress)
@@ -111,23 +116,40 @@ def compressFile[F[_]: Async](toCompress: Path, writeTo: Path)(implicit compress
     .drain
 ```
 
+`default` is only a shortcut for `make()` with every argument left alone. To configure the codec, build the instance
+yourself and drop the import:
+
+```scala
+implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make(deflateLevel = Some(9))
+```
+
+Annotate it with the concrete type, as above, rather than with `Compressor[IO]`. If both a `default` import and an
+instance annotated as `Compressor[IO]` are in scope, the imported one is more specific and quietly wins, and the
+settings are lost. With the concrete annotation the two compete on equal terms, so Scala 2.12 reports an ambiguity and
+2.13 and 3 prefer the one you wrote.
+
 ### Decompression
 
 Similarly, decompression can be abstracted over using the `Decompressor` typeclass. Adapt the following examples based on which compression algorithm was used to write the source file.
 ```scala
 import cats.effect.Async
 import de.lhns.fs2.compress._
+import de.lhns.fs2.compress.GzipDecompressor.default._
+import fs2.compression.Compression
+import fs2.io.compression._ // gzip needs a Compression[F]; the other codecs do not
 import fs2.io.file.{Files, Path}
 
-// implicit def brotli[F[_]: Async]: Decompressor[F] = BrotliDecompressor.make()
-// implicit def bzip2[F[_]: Async]: Decompressor[F] = Bzip2Decompressor.make()
-// implicit def lz4[F[_]: Async]: Decompressor[F] = Lz4Decompressor.make()
-// implicit def zstd[F[_]: Async]: Decompressor[F] = ZstdDecompressor.make()
-implicit def gzip[F[_]: Async]: Decompressor[F] = GzipDecompressor.make()
+// import de.lhns.fs2.compress.BrotliDecompressor.default._
+// import de.lhns.fs2.compress.Bzip2Decompressor.default._
+// import de.lhns.fs2.compress.Lz4Decompressor.default._
+// import de.lhns.fs2.compress.ZstdDecompressor.default._
+// import de.lhns.fs2.compress.SnappyDecompressor.framed._
 
-def decompressFile[F[_]: Async](toDecompress: Path, writeTo: Path)(implicit decompressor: Decompressor[F]): F[Unit] =
+def decompressFile[F[_]: Async: Compression](toDecompress: Path, writeTo: Path)(implicit
+    decompressor: Decompressor[F]
+): F[Unit] =
   Files[F]
-    .readAll(toCompress)
+    .readAll(toDecompress)
     .through(decompressor.decompress)
     .through(Files[F].writeAll(writeTo))
     .compile
@@ -143,11 +165,14 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-// implicit def tar[F[_]: Async]: Archiver[F, Some] = TarArchiver.make()
-// implicit def zip4j[F[_]: Async]: Archiver[F, Some] = Zip4JArchiver.make()
-implicit def zip[F[_]: Async]: Archiver[F, Option] = ZipArchiver.makeDeflated()
+import de.lhns.fs2.compress.ZipArchiver.default._
 
-def archiveDirectory[F[_]](directory: Path, writeTo: Path)(implicit archiver: Archiver[F, Option]): F[Unit] =
+// import de.lhns.fs2.compress.TarArchiver.default._
+// import de.lhns.fs2.compress.Zip4JArchiver.default._
+
+def archiveDirectory[F[_]: Async](directory: Path, writeTo: Path)(implicit
+    archiver: Archiver[F, Option]
+): F[Unit] =
   Files[F]
     .list(directory)
     .evalMap { path =>
@@ -172,10 +197,15 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-implicit def gzip[F[_]: Async]: Compressor[F] = GzipCompressor.make()
-implicit def tar[F[_]: Async]: Archiver[F, Some] = TarArchiver.make()
+import de.lhns.fs2.compress.GzipCompressor.default._
+import de.lhns.fs2.compress.TarArchiver.default._
+import fs2.compression.Compression
+import fs2.io.compression._
 
-def tarAndGzip[F[_]: Async](directory: Path, writeTo: Path)(implicit archiver: Archiver[F, Some], compressor: Compressor[F]): F[Unit] =
+def tarAndGzip[F[_]: Async: Compression](directory: Path, writeTo: Path)(implicit
+    archiver: Archiver[F, Some],
+    compressor: Compressor[F]
+): F[Unit] =
   Files[F]
     .list(directory)
     .evalMap { path =>
@@ -203,11 +233,16 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-// implicit def tar[F[_]: Async]: Unarchiver[F, Option] = TarUnarchiver.make()
-// implicit def zip4j[F[_]: Async]: Unarchiver[F, Option] = Zip4JUnarchiver.make()
-implicit def zip[F[_]: Async]: Unarchiver[F, Option] = ZipUnarchiver.make()
+import de.lhns.fs2.compress.ZipUnarchiver.default._
 
-def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: Unarchiver[F, Option]): F[Unit] =
+import java.util.zip.ZipEntry
+
+// import de.lhns.fs2.compress.TarUnarchiver.default._
+// import de.lhns.fs2.compress.Zip4JUnarchiver.default._
+
+def unArchive[F[_]: Async](archive: Path, writeTo: Path)(implicit
+    archiver: Unarchiver[F, Option, ZipEntry]
+): F[Unit] =
   Files[F]
     .readAll(archive)
     .through(archiver.unarchive)
@@ -224,10 +259,16 @@ import cats.effect.Async
 import de.lhns.fs2.compress._
 import fs2.io.file.{Files, Path}
 
-implicit def gzip[F[_]: Async]: Decompressor[F] = GzipDecompressor.make()
-implicit def tar[F[_]: Async]: Unarchiver[F, Option] = TarUnarchiver.make()
+import de.lhns.fs2.compress.GzipDecompressor.default._
+import de.lhns.fs2.compress.TarUnarchiver.default._
+import fs2.compression.Compression
+import fs2.io.compression._
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 
-def unArchive[F[_]](archive: Path, writeTo: Path)(implicit archiver: Unarchiver[F, Option], decompressor: Decompress[F]): F[Unit] =
+def unArchive[F[_]: Async: Compression](archive: Path, writeTo: Path)(implicit
+    archiver: Unarchiver[F, Option, TarArchiveEntry],
+    decompressor: Decompressor[F]
+): F[Unit] =
   Files[F]
     .readAll(archive)
     .through(decompressor.decompress)

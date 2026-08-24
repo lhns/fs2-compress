@@ -97,6 +97,15 @@ object ZipArchiver {
     */
   def makeStored[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Some] =
     make[F, Some](ZipOutputStream.STORED, chunkSize)
+
+  /** The DEFLATED archiver, to be imported where an instance is needed: `import ZipArchiver.default._`
+    *
+    * There is deliberately no default for STORED. That method needs the uncompressed size of every entry up front, so
+    * it is a choice a caller has to make rather than something to arrive at by importing; use `makeStored` for it.
+    */
+  object default {
+    implicit def defaultZipArchiver[F[_]: Async]: ZipArchiver[F, Option] = makeDeflated()
+  }
 }
 
 class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, ZipEntry] {
@@ -130,4 +139,11 @@ object ZipUnarchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipUnarchiver[F] =
     new ZipUnarchiver(chunkSize)
+
+  /** A ZipUnarchiver built with all defaults, to be imported where an instance is needed:
+    * `import ZipUnarchiver.default._`
+    */
+  object default {
+    implicit def defaultZipUnarchiver[F[_]: Async]: ZipUnarchiver[F] = make()
+  }
 }

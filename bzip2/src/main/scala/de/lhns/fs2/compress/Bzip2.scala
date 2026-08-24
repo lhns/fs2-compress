@@ -25,6 +25,13 @@ object Bzip2Compressor {
       blockSize: Option[Int] = None,
       chunkSize: Int = Defaults.defaultChunkSize
   ): Bzip2Compressor[F] = new Bzip2Compressor(blockSize, chunkSize)
+
+  /** A Bzip2Compressor built with all defaults, to be imported where an instance is needed:
+    * `import Bzip2Compressor.default._`
+    */
+  object default {
+    implicit def defaultBzip2Compressor[F[_]: Async]: Bzip2Compressor[F] = make()
+  }
 }
 
 class Bzip2Decompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -46,4 +53,11 @@ object Bzip2Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Bzip2Decompressor[F] =
     new Bzip2Decompressor(chunkSize)
+
+  /** A Bzip2Decompressor built with all defaults, to be imported where an instance is needed:
+    * `import Bzip2Decompressor.default._`
+    */
+  object default {
+    implicit def defaultBzip2Decompressor[F[_]: Async]: Bzip2Decompressor[F] = make()
+  }
 }

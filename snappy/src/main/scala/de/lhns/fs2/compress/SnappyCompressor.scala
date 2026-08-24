@@ -58,6 +58,26 @@ object SnappyCompressor {
       chunkSize: Int = Defaults.defaultChunkSize,
       mode: WriteMode
   ): SnappyCompressor[F] = new SnappyCompressor(chunkSize, mode)
+
+  // These are named after the modes rather than offering a `default`, because the modes do not produce interchangeable
+  // bytes. Picking one for the caller would turn a compile error into a stream that only fails when something tries to
+  // read it back.
+
+  /** The Snappy framing format. `import SnappyCompressor.framed._` */
+  object framed {
+    implicit def framedSnappyCompressor[F[_]: Async]: SnappyCompressor[F] = make(mode = WriteMode.Framed())
+  }
+
+  /** snappy-java's own block format. `import SnappyCompressor.basic._` */
+  object basic {
+    implicit def basicSnappyCompressor[F[_]: Async]: SnappyCompressor[F] = make(mode = WriteMode.Basic())
+  }
+
+  /** The block format without a stream header, for Hadoop. `import SnappyCompressor.hadoopCompatible._` */
+  object hadoopCompatible {
+    implicit def hadoopCompatibleSnappyCompressor[F[_]: Async]: SnappyCompressor[F] =
+      make(mode = WriteMode.HadoopCompatible())
+  }
 }
 
 class SnappyDecompressor[F[_]: Async] private (chunkSize: Int, decompressionType: SnappyDecompressor.ReadMode)
@@ -103,4 +123,16 @@ object SnappyDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize, mode: ReadMode): SnappyDecompressor[F] =
     new SnappyDecompressor(chunkSize, mode)
+
+  // Named after the modes for the same reason as SnappyCompressor: they read different formats.
+
+  /** The Snappy framing format. `import SnappyDecompressor.framed._` */
+  object framed {
+    implicit def framedSnappyDecompressor[F[_]: Async]: SnappyDecompressor[F] = make(mode = ReadMode.Framed())
+  }
+
+  /** snappy-java's own block format. `import SnappyDecompressor.basic._` */
+  object basic {
+    implicit def basicSnappyDecompressor[F[_]: Async]: SnappyDecompressor[F] = make(mode = ReadMode.Basic())
+  }
 }

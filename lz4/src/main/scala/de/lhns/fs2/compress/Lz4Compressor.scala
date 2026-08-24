@@ -21,6 +21,13 @@ object Lz4Compressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): Lz4Compressor[F] =
     new Lz4Compressor(chunkSize)
+
+  /** A Lz4Compressor built with all defaults, to be imported where an instance is needed:
+    * `import Lz4Compressor.default._`
+    */
+  object default {
+    implicit def defaultLz4Compressor[F[_]: Async]: Lz4Compressor[F] = make()
+  }
 }
 
 class Lz4Decompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -42,4 +49,11 @@ object Lz4Decompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): Lz4Decompressor[F] =
     new Lz4Decompressor(chunkSize)
+
+  /** A Lz4Decompressor built with all defaults, to be imported where an instance is needed:
+    * `import Lz4Decompressor.default._`
+    */
+  object default {
+    implicit def defaultLz4Decompressor[F[_]: Async]: Lz4Decompressor[F] = make()
+  }
 }

@@ -84,6 +84,12 @@ object TarArchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarArchiver[F] =
     new TarArchiver(chunkSize)
+
+  /** A TarArchiver built with all defaults, to be imported where an instance is needed: `import TarArchiver.default._`
+    */
+  object default {
+    implicit def defaultTarArchiver[F[_]: Async]: TarArchiver[F] = make()
+  }
 }
 
 class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, Option, TarArchiveEntry] {
@@ -114,4 +120,11 @@ object TarUnarchiver {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): TarUnarchiver[F] =
     new TarUnarchiver(chunkSize)
+
+  /** A TarUnarchiver built with all defaults, to be imported where an instance is needed:
+    * `import TarUnarchiver.default._`
+    */
+  object default {
+    implicit def defaultTarUnarchiver[F[_]: Async]: TarUnarchiver[F] = make()
+  }
 }

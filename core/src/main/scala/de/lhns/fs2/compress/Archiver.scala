@@ -4,6 +4,12 @@ import cats.effect.{Async, Ref}
 import cats.syntax.all._
 import fs2.{Pipe, Stream}
 
+import scala.annotation.implicitNotFound
+
+@implicitNotFound(
+  "No Archiver[${F}, ${Size}] in scope. Import a default instance, for example `import ZipArchiver.default._`, or build "
+    + "one with `ZipArchiver.makeDeflated(...)` and make it implicit."
+)
 trait Archiver[F[_], Size[A] <: Option[A]] {
   def archive: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), Byte]
 }

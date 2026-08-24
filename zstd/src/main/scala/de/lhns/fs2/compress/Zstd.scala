@@ -27,6 +27,13 @@ object ZstdCompressor {
       chunkSize: Int = Defaults.defaultChunkSize
   ): ZstdCompressor[F] =
     new ZstdCompressor(level, workers, chunkSize)
+
+  /** A ZstdCompressor built with all defaults, to be imported where an instance is needed:
+    * `import ZstdCompressor.default._`
+    */
+  object default {
+    implicit def defaultZstdCompressor[F[_]: Async]: ZstdCompressor[F] = make()
+  }
 }
 
 class ZstdDecompressor[F[_]: Async] private (chunkSize: Int) extends Decompressor[F] {
@@ -48,4 +55,11 @@ object ZstdDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZstdDecompressor[F] =
     new ZstdDecompressor(chunkSize)
+
+  /** A ZstdDecompressor built with all defaults, to be imported where an instance is needed:
+    * `import ZstdDecompressor.default._`
+    */
+  object default {
+    implicit def defaultZstdDecompressor[F[_]: Async]: ZstdDecompressor[F] = make()
+  }
 }

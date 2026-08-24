@@ -96,6 +96,15 @@ object Zip4JArchiver {
       chunkSize: Int = Defaults.defaultChunkSize
   ): Zip4JArchiver[F] =
     new Zip4JArchiver(password, chunkSize)
+
+  /** A Zip4JArchiver that writes without a password, to be imported where an instance is needed:
+    * `import Zip4JArchiver.default._`
+    *
+    * For an encrypted archive use `make(password = ...)`.
+    */
+  object default {
+    implicit def defaultZip4JArchiver[F[_]: Async]: Zip4JArchiver[F] = make()
+  }
 }
 
 class Zip4JUnarchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int)
@@ -136,4 +145,13 @@ object Zip4JUnarchiver {
       chunkSize: Int = Defaults.defaultChunkSize
   ): Zip4JUnarchiver[F] =
     new Zip4JUnarchiver(password, chunkSize)
+
+  /** A Zip4JUnarchiver that reads unencrypted archives, to be imported where an instance is needed:
+    * `import Zip4JUnarchiver.default._`
+    *
+    * To read an encrypted archive use `make(password = ...)`.
+    */
+  object default {
+    implicit def defaultZip4JUnarchiver[F[_]: Async]: Zip4JUnarchiver[F] = make()
+  }
 }

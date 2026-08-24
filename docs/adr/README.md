@@ -38,6 +38,7 @@ supersedes it.
 | [0019](0019-share-the-output-stream-plumbing.md) | Share the `readOutputStream` plumbing in `OutputStreams` | Accepted |
 | [0020](0020-assert-cancellation-by-counting-not-timing.md) | Assert cancellation by counting bytes, not by elapsed time | Accepted |
 | [0021](0021-skipping-entries-and-stale-reads.md) | Let entries be skipped, and fail when reading data the archive has passed | Proposed |
+| [0022](0022-default-instances-in-a-default-object.md) | Ship default instances in a `default` object per companion | Proposed |
 
 ## Threads worth following
 
@@ -52,6 +53,10 @@ expressed.
 is where every later difficulty comes from: 0018 for cancellation, 0019 for the shared
 plumbing that fixed it in one place, 0020 for how it is tested, and 0021 for what happens
 when a consumer skips an entry.
+
+**How an instance reaches the caller.** 0004 made each operation a trait, 0005 made instances
+something you summon implicitly rather than construct at the call site, and 0022 closes the
+ceremony that left behind by letting you import a default one.
 
 **When to add a module rather than change one.** 0002 established one artifact per codec,
 0007 and 0015 both applied it by adding a second implementation of a format rather than

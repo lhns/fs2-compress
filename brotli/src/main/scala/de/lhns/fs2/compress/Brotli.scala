@@ -25,4 +25,11 @@ object BrotliDecompressor {
 
   def make[F[_]: Async](chunkSize: Int = defaultChunkSize): BrotliDecompressor[F] =
     new BrotliDecompressor(chunkSize)
+
+  /** A BrotliDecompressor built with all defaults, to be imported where an instance is needed:
+    * `import BrotliDecompressor.default._`
+    */
+  object default {
+    implicit def defaultBrotliDecompressor[F[_]: Async]: BrotliDecompressor[F] = make()
+  }
 }
