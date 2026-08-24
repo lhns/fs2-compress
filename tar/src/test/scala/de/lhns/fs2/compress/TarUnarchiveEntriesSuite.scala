@@ -15,5 +15,7 @@ class TarUnarchiveEntriesSuite extends UnarchiveEntriesSuite[TarArchiveEntry] {
       .compile
       .to(Chunk)
 
+  override protected def fixtureName: String = "/basic-text.tar"
+
   override protected def unarchiver: Unarchiver[IO, Option, TarArchiveEntry] = TarUnarchiver.make[IO]()
 }

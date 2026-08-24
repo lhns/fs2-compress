@@ -18,7 +18,7 @@ object Unarchiver {
     * mistake, and it fails with an `IllegalStateException` rather than quietly handing back the bytes of whichever
     * entry the archive is positioned at now.
     */
-  def entries[F[_]: Async, Underlying](
+  def readEntries[F[_]: Async, Underlying](
       nextEntry: F[Option[Underlying]],
       entryData: Stream[F, Byte]
   ): Stream[F, (Underlying, Stream[F, Byte])] =
@@ -35,7 +35,7 @@ object Unarchiver {
             )
         }
 
-      def readEntries(index: Long): Stream[F, (Underlying, Stream[F, Byte])] =
+      def fromIndex(index: Long): Stream[F, (Underlying, Stream[F, Byte])] =
         // The position is recorded before the archive advances, so that the data of the previous entry starts failing
         // as soon as this commits to moving on, rather than once it has finished skipping ahead.
         Stream.eval(position.set(index) *> nextEntry).flatMap {
@@ -43,9 +43,9 @@ object Unarchiver {
           case Some(entry) =>
             val data = Stream.exec(checkPosition(index)) ++
               entryData.chunks.evalTap(_ => checkPosition(index)).unchunks
-            Stream.emit((entry, data)) ++ readEntries(index + 1)
+            Stream.emit((entry, data)) ++ fromIndex(index + 1)
         }
 
-      readEntries(0L)
+      fromIndex(0L)
     }
 }

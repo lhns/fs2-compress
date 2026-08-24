@@ -2,7 +2,7 @@ package de.lhns.fs2.compress
 
 import cats.effect.IO
 import cats.syntax.all._
-import fs2.{Chunk, Stream}
+import fs2.{Chunk, Stream, text}
 
 /** How an `Unarchiver` behaves when the data of an entry is not read, or is read at the wrong time.
   *
@@ -18,7 +18,18 @@ abstract class UnarchiveEntriesSuite[Underlying] extends CancellationSuite {
 
   protected def unarchiver: Unarchiver[IO, Option, Underlying]
 
+  /** An archive of [[fixtureEntries]] on the test classpath, written by some other tool rather than by this library. */
+  protected def fixtureName: String
+
   protected def entrySize: Int = 8 * 1024
+
+  protected val fixtureEntries: List[(String, String)] =
+    (1 to 5).map(n => (s"file$n.txt", s"file$n content")).toList
+
+  private def readEntry(entry: (ArchiveEntry[Option, Underlying], Stream[IO, Byte])): Stream[IO, (String, String)] =
+    entry match {
+      case (header, data) => data.through(text.utf8.decode).map(content => (header.name, content.trim))
+    }
 
   private def sample: IO[(Chunk[Byte], List[(String, Chunk[Byte])])] =
     List("first", "second", "third")
@@ -100,5 +111,43 @@ abstract class UnarchiveEntriesSuite[Underlying] extends CancellationSuite {
           fail("reading the data of an entry that the archive had already moved past was allowed to succeed")
       }
     }
+  }
+
+  // The tests below read an archive that this library did not write, which is the only way to catch a
+  // disagreement with the format itself rather than with our own idea of it.
+
+  test("a real archive reads back entry by entry") {
+    finishes(
+      ResourceUtil
+        .resourceAsStream(fixtureName)
+        .through(unarchiver.unarchive)
+        .flatMap(readEntry)
+        .compile
+        .toList
+    ).map(read => assertEquals(read, fixtureEntries))
+  }
+
+  test("a real archive can be listed without reading any data") {
+    finishes(
+      ResourceUtil
+        .resourceAsStream(fixtureName)
+        .through(unarchiver.unarchive)
+        .map { case (header, _) => header.name }
+        .compile
+        .toList
+    ).map(names => assertEquals(names, fixtureEntries.map { case (name, _) => name }))
+  }
+
+  test("reading only the second entry of a real archive gives that entry's data") {
+    finishes(
+      ResourceUtil
+        .resourceAsStream(fixtureName)
+        .through(unarchiver.unarchive)
+        .tail
+        .head
+        .flatMap(readEntry)
+        .compile
+        .toList
+    ).map(read => assertEquals(read, fixtureEntries.slice(1, 2)))
   }
 }

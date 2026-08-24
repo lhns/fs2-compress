@@ -14,5 +14,7 @@ class ZipUnarchiveEntriesSuite extends UnarchiveEntriesSuite[ZipEntry] {
       .compile
       .to(Chunk)
 
+  override protected def fixtureName: String = "/basic-text.zip"
+
   override protected def unarchiver: Unarchiver[IO, Option, ZipEntry] = ZipUnarchiver.make[IO]()
 }

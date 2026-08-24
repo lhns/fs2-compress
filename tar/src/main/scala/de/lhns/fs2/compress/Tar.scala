@@ -100,7 +100,7 @@ class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
       }
       .flatMap { tarInputStream =>
         Unarchiver
-          .entries(
+          .readEntries(
             Async[F].blocking(Option(tarInputStream.getNextEntry)),
             readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false)
           )

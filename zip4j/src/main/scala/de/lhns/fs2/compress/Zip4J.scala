@@ -112,7 +112,7 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
       }
       .flatMap { zipInputStream =>
         Unarchiver
-          .entries(
+          .readEntries(
             // There is no closeEntry() finalizer here. getNextEntry() already reads to the end of
             // the previous entry, and a drain that cannot be interrupted would block cancellation.
             Async[F].blocking(Option(zipInputStream.getNextEntry)),

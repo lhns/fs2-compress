@@ -15,5 +15,7 @@ class Zip4JUnarchiveEntriesSuite extends UnarchiveEntriesSuite[LocalFileHeader] 
       .compile
       .to(Chunk)
 
+  override protected def fixtureName: String = "/basic-text.zip"
+
   override protected def unarchiver: Unarchiver[IO, Option, LocalFileHeader] = Zip4JUnarchiver.make[IO]()
 }
