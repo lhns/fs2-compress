@@ -18,7 +18,7 @@ object Unarchiver {
     * mistake, and it fails with an `IllegalStateException` rather than quietly handing back the bytes of whichever
     * entry the archive is positioned at now.
     */
-  def readEntries[F[_]: Async, Underlying](
+  private[compress] def readEntries[F[_]: Async, Underlying](
       nextEntry: F[Option[Underlying]],
       entryData: Stream[F, Byte]
   ): Stream[F, (Underlying, Stream[F, Byte])] =
