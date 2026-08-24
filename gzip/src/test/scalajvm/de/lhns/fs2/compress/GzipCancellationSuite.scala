@@ -2,10 +2,9 @@ package de.lhns.fs2.compress
 
 import cats.effect.IO
 
-/** The control group. Gzip is implemented with `fs2.compression.Compression`, so there is no `java.io` stream and no
-  * `Async[F].blocking` finalizer anywhere on its path. It is therefore expected to pass every scenario in this suite
-  * *before* the interruption fix as well as after, which is what shows the harness is not asserting something
-  * universally impossible.
+/** The control group. Gzip is built on `fs2.compression.Compression`, so there is no `java.io` stream and no
+  * `Async[F].blocking` finalizer anywhere along its path. It should therefore pass every test in this suite both before
+  * and after the fix, which is what shows that these tests are not asking for something impossible.
   */
 class GzipCancellationSuite extends CompressorCancellationSuite {
   override protected def compressor(chunkSize: Int): Option[Compressor[IO]] =

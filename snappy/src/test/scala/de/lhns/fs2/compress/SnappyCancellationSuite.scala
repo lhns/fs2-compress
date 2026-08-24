@@ -3,8 +3,9 @@ package de.lhns.fs2.compress
 import cats.effect.IO
 
 class SnappyBasicCancellationSuite extends CompressorCancellationSuite {
-  // See CompressorCancellationSuite.decompressorReadsAreFineGrained: this decompressor needs a
-  // whole internal block per read, so cancellation latency is bounded by the source, not by us.
+  // This decompressor needs a whole internal block for every read, so how long a cancellation
+  // takes depends on the source rather than on this library. See
+  // CompressorCancellationSuite.decompressorReadsAreFineGrained.
   override protected def decompressorReadsAreFineGrained: Boolean = false
 
   override protected def compressor(chunkSize: Int): Option[Compressor[IO]] =
@@ -15,8 +16,9 @@ class SnappyBasicCancellationSuite extends CompressorCancellationSuite {
 }
 
 class SnappyFramedCancellationSuite extends CompressorCancellationSuite {
-  // See CompressorCancellationSuite.decompressorReadsAreFineGrained: this decompressor needs a
-  // whole internal block per read, so cancellation latency is bounded by the source, not by us.
+  // This decompressor needs a whole internal block for every read, so how long a cancellation
+  // takes depends on the source rather than on this library. See
+  // CompressorCancellationSuite.decompressorReadsAreFineGrained.
   override protected def decompressorReadsAreFineGrained: Boolean = false
 
   override protected def compressor(chunkSize: Int): Option[Compressor[IO]] =

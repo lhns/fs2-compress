@@ -10,34 +10,35 @@ import munit.{CatsEffectSuite, Location}
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 
-/** Shared machinery for asserting that cancelling a compression / archiving stream actually completes, instead of
-  * parking forever inside a non-interruptible `Async[F].blocking` finalizer (see issue #113).
+/** Shared machinery for asserting that cancelling a compression or archiving stream actually completes, rather than
+  * parking forever inside an `Async[F].blocking` finalizer that cannot be interrupted (see issue #113).
   *
-  * The most important design constraint here is *where the fiber is parked* when the cancellation arrives, because that
-  * decides whether a test is asserting something achievable at all:
+  * What matters most in these tests is where the fiber is parked when the cancellation arrives, because that decides
+  * whether the test is asking for something that is possible at all.
   *
-  *   - Parked in a mid-stream read that will never return (a `Stream.never` tail, or a gate that is only opened by the
-  *     test cleanup): `fs2.io.readInputStream` reads via `F.blocking(is.read(...))`, so cancellation cannot be
-  *     delivered until that read returns. No amount of finalizer fixing helps, and such a test stays red forever.
-  *   - Parked in a *finalizer* that is draining or flushing bytes which are still moving: that is the real issue #113
-  *     (a live download whose remaining entry bytes `closeEntry()` insists on draining before it returns), and that is
-  *     what can actually be fixed.
+  * If it is parked in a read that will never return, such as a `Stream.never` tail or a gate that only the test cleanup
+  * opens, then nothing can be done about it. `fs2.io.readInputStream` reads inside `F.blocking(is.read(...))`, so the
+  * cancellation is not delivered until that read returns, and no change to the finalizers makes a difference.
   *
-  * So the read side uses [[slowSource]] - the source keeps delivering, individual reads return promptly, but there is a
-  * lot left to drain - while the write side uses [[stalledChunkSize]] together with [[stalledSink]], which makes the
-  * output pipe full by construction.
+  * If it is parked in a finalizer that is draining or flushing bytes which are still arriving, then that is issue #113
+  * itself, and it can be fixed. A download that is still running is the usual example: `closeEntry()` insists on
+  * draining the rest of the entry before it returns.
   *
-  * Cross-platform note: `core` and `gzip` also cross-build to Scala.js, so this file must not reference `java.io`,
-  * `fs2.io` or anything else that is JVM-only.
+  * The read side therefore uses [[slowSource]], where the source keeps delivering so that each read returns quickly
+  * while a lot of data is still left to drain. The write side uses [[stalledChunkSize]] with [[stalledSink]], which
+  * fills the output pipe and keeps it full.
   *
-  * Timing policy: every duration below is an *upper* bound on something a correct implementation finishes in
-  * milliseconds, or a window widener. No assertion ever requires an operation to be slow. A mistuned constant can
-  * therefore only ever produce a false pass, never a false failure.
+  * Note that `core` and `gzip` are also built for Scala.js, so this file must not use `java.io`, `fs2.io` or anything
+  * else that only exists on the JVM.
+  *
+  * Every duration below is an upper bound on something that a correct implementation does in milliseconds, or it widens
+  * a window. No assertion ever requires an operation to be slow, so a badly chosen value can only make a test pass when
+  * it should not, and never fail when it should not.
   */
 trait CancellationSuite extends CatsEffectSuite {
 
-  /** How long `Fiber#cancel` is allowed to take. A correct implementation needs single digit milliseconds; this is a
-    * hang detector, not a benchmark.
+  /** How long `Fiber#cancel` is allowed to take. A correct implementation needs a few milliseconds, so this detects a
+    * hang rather than measuring performance.
     */
   protected def cancelBudget: FiniteDuration = 1500.millis
 
@@ -45,23 +46,24 @@ trait CancellationSuite extends CatsEffectSuite {
     */
   protected def completionBudget: FiniteDuration = 10.seconds
 
-  /** Purely widens the window during which the subject sits inside the blocking call we want to interrupt. This is
-    * *not* synchronisation - the signal handed to [[assertCancelsPromptly]] is the real one. If this were too short the
-    * result would be a false pass, never a failure.
+  /** Widens the window during which the code under test sits inside the blocking call we want to interrupt. This is not
+    * used for synchronisation; the signal passed to [[assertCancelsPromptly]] does that. If this value is too short, a
+    * test passes when it should not, but it never fails when it should not.
     */
   protected def settleDelay: FiniteDuration = 100.millis
 
-  /** Deliberately tiny. `fs2.io.readOutputStream` allocates a `PipedStreamBuffer(chunkSize)`, so the pipe capacity *is*
-    * the chunk size. At 64 bytes, a consumer that stops draining guarantees that the very next write - including the
-    * trailer written by `closeEntry()` / `OutputStream#close()` \- blocks. That is what makes the write side tests
-    * deterministic without sleeping.
+  /** Deliberately small. `fs2.io.readOutputStream` allocates a `PipedStreamBuffer(chunkSize)`, so the capacity of the
+    * pipe is the chunk size. At 64 bytes, a consumer that stops draining makes the next write block, including the
+    * trailer that `closeEntry()` and `OutputStream#close()` write. That is what makes the tests on the write side
+    * reliable without sleeping.
     */
   protected def stalledChunkSize: Int = 64
 
   protected def payloadSize: Int = 128 * 1024
 
-  /** Size of the chunks the withheld tail of a source is released in, and the delay between them. Together these decide
-    * how long a full drain takes: a correct implementation never waits for it, a broken one waits for all of it.
+  /** The size of the chunks that the withheld tail of a source is released in, and the delay between them. Together
+    * they decide how long a full drain takes. A correct implementation never waits for it, a broken one waits for all
+    * of it.
     */
   protected def tailChunkSize: Int = 1024
 
@@ -77,10 +79,10 @@ trait CancellationSuite extends CatsEffectSuite {
   /** `bytes`, with the first `headSize` bytes delivered at once and the remainder trickled out in [[tailChunkSize]]
     * pieces, one per [[tailPeriod]].
     *
-    * The point is that the source never stops: every blocking read returns within one period, so cancellation *can* be
-    * delivered. What it cannot do is finish quickly - draining the rest takes roughly
-    * `(bytes.size - headSize) / tailChunkSize * tailPeriod`. A finalizer that insists on draining before it returns
-    * therefore blows the cancellation budget by a wide margin, while one that does not is unaffected.
+    * The source never stops, so every blocking read returns within one period and the cancellation can be delivered.
+    * What it cannot do is finish quickly, because draining the rest takes about
+    * `(bytes.size - headSize) / tailChunkSize * tailPeriod`. A finalizer that drains before it returns therefore
+    * exceeds the cancellation budget by a wide margin, while one that does not is unaffected.
     */
   protected def slowSource(bytes: Chunk[Byte], headSize: Int): Stream[IO, Byte] = {
     val at = math.max(1, math.min(headSize, bytes.size - 1))
@@ -88,9 +90,9 @@ trait CancellationSuite extends CatsEffectSuite {
     Stream.chunk[IO, Byte](head) ++ Stream.chunk[IO, Byte](tail).chunkLimit(tailChunkSize).metered(tailPeriod).unchunks
   }
 
-  /** Pulls exactly one chunk - so the producer is definitely running and the `readOutputStream` pipe is definitely
-    * being filled - and then never pulls again. Combined with [[stalledChunkSize]] this saturates the pipe by
-    * construction.
+  /** Pulls exactly one chunk and then never pulls again. Pulling once makes sure that the producer is running and that
+    * the `readOutputStream` pipe is being filled. Together with [[stalledChunkSize]] this fills the pipe and keeps it
+    * full.
     */
   protected def stalledSink(firstChunk: Deferred[IO, Unit]): Pipe[IO, Byte, Nothing] =
     _.chunks
@@ -104,16 +106,16 @@ trait CancellationSuite extends CatsEffectSuite {
   /** Runs `program` in a fiber, waits for `readyToCancel`, cancels it and asserts that the cancellation completes
     * within [[cancelBudget]].
     *
-    * Do not "simplify" the cancellation dance below:
-    *   - `fiber.cancel.timeout(d)` hangs. `cancel` is `IO.uncancelable`, and `timeout` is `race(_, sleep)`, which
-    *     cancels the loser and waits for that cancellation to finish. Cancelling an uncancelable region back-pressures
-    *     until it exits - which is exactly the situation under test.
-    *   - `fiber.cancel.background.use(...)` hangs for the same reason: the `Resource` release cancels the canceller
-    *     fiber and waits for it.
+    * The way the cancellation is written below looks roundabout, but the shorter versions do not work.
+    * `fiber.cancel.timeout(d)` hangs, because `cancel` is `IO.uncancelable` and `timeout` is `race(_, sleep)`, which
+    * cancels the loser and then waits for that cancellation to finish. Waiting for an uncancelable region to be
+    * cancelled is exactly the situation these tests are about. `fiber.cancel.background.use(...)` hangs for the same
+    * reason, because releasing the `Resource` cancels the fiber that does the cancelling and waits for it.
     *
-    * `.start` plus a cancelable `join.timeout(...)` is the only bounded formulation. On timeout the canceller fiber,
-    * and one blocked platform thread, are abandoned; that is the price of reporting a failure instead of hanging the
-    * suite, and it only happens on an already red run.
+    * Starting the cancellation in its own fiber and waiting for it with `join.timeout(...)`, which can be cancelled, is
+    * the only version that always finishes. When it times out, that fiber and one blocked thread are left behind. That
+    * is the price of reporting a failure instead of hanging the whole suite, and it only happens on a run that has
+    * already failed.
     */
   protected def assertCancelsPromptly[A](
       program: IO[A],
@@ -145,9 +147,9 @@ trait CancellationSuite extends CatsEffectSuite {
       }
     } yield ()
 
-  /** Asserts that `program` terminates on its own within [[completionBudget]]. Used where nothing is cancelled
-    * explicitly but the stream can still deadlock in a finalizer. Deliberately does not cancel the fiber on timeout -
-    * that would hang, for the reasons above.
+  /** Asserts that `program` finishes on its own within [[completionBudget]]. This is for the cases where nothing is
+    * cancelled explicitly but the stream can still deadlock in a finalizer. On timeout the fiber is deliberately not
+    * cancelled, because that would hang for the reasons given above.
     */
   protected def assertCompletesPromptly[A](program: IO[A])(implicit loc: Location): IO[A] =
     program.start.flatMap { fiber =>

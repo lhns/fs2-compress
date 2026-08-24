@@ -3,11 +3,11 @@ package de.lhns.fs2.compress
 import cats.effect.{Deferred, IO}
 import fs2.{Chunk, Stream}
 
-/** The cancellation contract for a `Compressor` / `Decompressor` pair.
+/** The cancellation contract for a `Compressor` and `Decompressor` pair.
   *
-  * Subclasses build a *fresh* instance for a given chunk size, because the write side tests need to shrink the
-  * `fs2.io.readOutputStream` pipe (see `CancellationSuite.stalledChunkSize`). Modules that only decompress override
-  * [[compressorSupported]] and supply [[compressedSample]] directly.
+  * Subclasses build a new instance for a given chunk size, because the tests on the write side need to shrink the
+  * `fs2.io.readOutputStream` pipe (see `CancellationSuite.stalledChunkSize`). Modules that can only decompress override
+  * [[compressorSupported]] and provide [[compressedSample]] themselves.
   */
 abstract class CompressorCancellationSuite extends CancellationSuite {
 
@@ -17,21 +17,22 @@ abstract class CompressorCancellationSuite extends CancellationSuite {
 
   protected def compressorSupported: Boolean = true
 
-  /** Whether the decompressor returns from `read` after a small amount of input.
+  /** Whether the decompressor returns from `read` once it has read a small amount of input.
     *
-    * Some codecs (snappy, bzip2, lz4, brotli) need a whole internal block before a single `InputStream#read` can return
-    * anything. `fs2.io.readInputStream` performs that read inside a non-interruptible `F.blocking`, so with a
-    * deliberately slow source the cancellation cannot be delivered until the entire block has trickled in - no matter
-    * how the finalizers behave. For those codecs the trickling scenario would assert something no fix can deliver, so
-    * it is skipped; the remaining scenarios still cover them. Verified by thread dump: those decompressors park in
-    * `XInputStream.read`, whereas `ZipUnarchiver` parks in `ZipInputStream.closeEntry()` inside a resource finalizer,
-    * which is the bug this suite is about.
+    * Snappy, bzip2, lz4 and brotli need a whole internal block before a single `InputStream#read` can return anything.
+    * `fs2.io.readInputStream` performs that read inside an `F.blocking` that cannot be interrupted, so with a
+    * deliberately slow source the cancellation is not delivered until the whole block has arrived, no matter what the
+    * finalizers do. For those codecs the test with the slow source would ask for something that no fix can provide, so
+    * it is skipped. The other tests still cover them.
+    *
+    * Thread dumps confirm the difference: those decompressors park in `XInputStream.read`, while `ZipUnarchiver` parks
+    * in `ZipInputStream.closeEntry()` inside a resource finalizer, which is the bug this suite is about.
     */
   protected def decompressorReadsAreFineGrained: Boolean = true
 
-  /** How much of the compressed sample is handed over before the source starts to trickle. A quarter is enough for any
-    * of these formats to be well inside the payload, and leaves three quarters that a draining finalizer would have to
-    * wait for.
+  /** How much of the compressed sample is delivered before the source starts to trickle. A quarter puts every one of
+    * these formats well inside the payload, and leaves three quarters that a finalizer which drains would have to wait
+    * for.
     */
   protected def headSize(size: Int): Int = math.max(1, size / 4)
 

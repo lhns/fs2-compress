@@ -3,14 +3,14 @@ package de.lhns.fs2.compress
 import cats.effect.{Deferred, IO}
 import fs2.Stream
 
-/** The cancellation contract for an `Archiver` / `Unarchiver` pair.
+/** The cancellation contract for an `Archiver` and `Unarchiver` pair.
   *
-  * Every `Compressor` / `Decompressor` scenario is inherited by routing through `ArchiveSingleFileCompressor` /
+  * All the `Compressor` and `Decompressor` tests are inherited and run through `ArchiveSingleFileCompressor` and
   * `ArchiveSingleFileDecompressor`, which is what puts the per entry `Resource.make(putNextEntry)(closeEntry)` on the
-  * cancellation path in the first place. On top of that come the scenarios that only exist for archives.
+  * cancellation path in the first place. The tests that only make sense for archives are added on top.
   *
-  * `Underlying` is a type parameter rather than a wildcard because the third parameter of `Unarchiver` is invariant and
-  * existentials are awkward across 2.12 / 2.13 / 3.
+  * `Underlying` is a type parameter rather than a wildcard because the third parameter of `Unarchiver` is invariant,
+  * and existential types are awkward to write for 2.12, 2.13 and 3 at the same time.
   */
 abstract class ArchiverCancellationSuite[Underlying] extends CompressorCancellationSuite {
 
@@ -26,8 +26,8 @@ abstract class ArchiverCancellationSuite[Underlying] extends CompressorCancellat
     ArchiveSingleFileDecompressor(unarchiver(chunkSize))
 
   test("unarchive: cancellation completes while an entry body is still arriving") {
-    // This is issue #113 verbatim: we are provably inside the entry, the source is still delivering,
-    // and three quarters of the entry have yet to arrive. Cancelling must not wait for the rest.
+    // This is issue #113 itself. We are inside the entry, the source is still delivering, and three
+    // quarters of the entry have yet to arrive. Cancelling must not wait for the rest of it.
     for {
       archived <- compressedSample
       inEntry <- Deferred[IO, Unit]
@@ -41,9 +41,9 @@ abstract class ArchiverCancellationSuite[Underlying] extends CompressorCancellat
   }
 
   test("unarchive: not consuming an entry body still terminates") {
-    // Deliberately an ungated, fully in memory source: `take` finalises with ExitCase.Succeeded
-    // rather than cancellation, so skipping to the end of the entry here is legitimate work. This
-    // guards against a fix that deadlocks the normal skip path.
+    // The source here is deliberately in memory and not slowed down. `take` finishes with
+    // ExitCase.Succeeded rather than a cancellation, so skipping to the end of the entry is work
+    // that should still happen. This test guards against a fix that deadlocks that path.
     for {
       archived <- compressedSample
       _ <- assertCompletesPromptly(

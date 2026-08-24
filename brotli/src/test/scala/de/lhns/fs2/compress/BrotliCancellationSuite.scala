@@ -5,13 +5,14 @@ import fs2.Chunk
 
 import java.io.{ByteArrayOutputStream, IOException}
 
-/** Brotli only provides a decompressor here, so there is no compressor to exercise and the sample comes from a checked
-  * in fixture (128 KiB of incompressible random data) rather than from a round trip. The size matters: a tiny sample
-  * would make the trickling source test vacuous.
+/** Brotli only provides a decompressor here, so there is no compressor to test and the sample comes from a fixture file
+  * of 128 KiB of random data rather than from a round trip. The size matters, because a small sample would leave the
+  * test with the slow source with nothing to wait for.
   */
 class BrotliCancellationSuite extends CompressorCancellationSuite {
-  // See CompressorCancellationSuite.decompressorReadsAreFineGrained: this decompressor needs a
-  // whole internal block per read, so cancellation latency is bounded by the source, not by us.
+  // This decompressor needs a whole internal block for every read, so how long a cancellation
+  // takes depends on the source rather than on this library. See
+  // CompressorCancellationSuite.decompressorReadsAreFineGrained.
   override protected def decompressorReadsAreFineGrained: Boolean = false
 
   override protected def compressorSupported: Boolean = false
