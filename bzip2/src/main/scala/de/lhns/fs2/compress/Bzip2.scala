@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import fs2.{Pipe, Stream}
 import fs2.io._
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream}
@@ -10,27 +10,31 @@ import java.io.{BufferedInputStream, OutputStream}
 class Bzip2Compressor[F[_]: Async] private (blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      CloseGuard(
-        Async[F].blocking[OutputStream](
-          blockSize.fold(
-            new BZip2CompressorOutputStream(outputStream)
-          )(
-            new BZip2CompressorOutputStream(outputStream, _)
+      Resource
+        .make(
+          Async[F].blocking[OutputStream](
+            blockSize.fold(
+              new BZip2CompressorOutputStream(outputStream)
+            )(
+              new BZip2CompressorOutputStream(outputStream, _)
+            )
           )
-        )
-      )(
-        close = os => Async[F].blocking(os.close()),
-        // close() -> finish() writes the buffered final block, up to ~900 kB, into `outputStream`.
-        abort = os =>
-          Async[F].blocking {
+        )(os =>
+          // Safety net for the paths where the stream above did not get to close `os` itself:
+          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+          // completion and still frees what it owns, instead of blocking forever on a consumer that
+          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+          Async[F].void(Async[F].attempt(Async[F].blocking {
             outputStream.close()
             os.close()
-          }
-      ).use { os =>
-        (stream
-          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-      }
+          }))
+        )
+        .use { os =>
+          (stream
+            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+        }
     }
   }
 }

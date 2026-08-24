@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import com.aayushatharva.brotli4j.Brotli4jLoader
 import com.aayushatharva.brotli4j.encoder.{BrotliOutputStream, Encoder}
 import com.aayushatharva.brotli4j.decoder.BrotliInputStream
@@ -13,20 +13,23 @@ class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.P
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream.exec(Async[F].blocking(Brotli4jLoader.ensureAvailability())).covaryOutput[Byte] ++
       readOutputStream[F](chunkSize) { outputStream =>
-        CloseGuard(Async[F].blocking[OutputStream](new BrotliOutputStream(outputStream, params)))(
-          close = os => Async[F].blocking(os.close()),
-          // close() finishes the stream into `outputStream` before releasing the native encoder;
-          // with the pipe closed the writes are no-ops and the encoder is still freed.
-          abort = os =>
-            Async[F].blocking {
+        Resource
+          .make(Async[F].blocking[OutputStream](new BrotliOutputStream(outputStream, params)))(os =>
+            // Safety net for the paths where the stream above did not get to close `os` itself:
+            // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+            // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+            // completion and still frees what it owns, instead of blocking forever on a consumer that
+            // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+            Async[F].void(Async[F].attempt(Async[F].blocking {
               outputStream.close()
               os.close()
-            }
-        ).use { os =>
-          (stream
-            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-        }
+            }))
+          )
+          .use { os =>
+            (stream
+              .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+              Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+          }
       }
   }
 }

@@ -1,7 +1,7 @@
 package de.lhns.fs2.compress
 
 import net.jpountz.lz4.{LZ4FrameOutputStream, LZ4FrameInputStream}
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import fs2.{Pipe, Stream}
 import fs2.io._
 
@@ -10,21 +10,25 @@ import java.io.{BufferedInputStream, OutputStream}
 class Lz4Compressor[F[_]: Async] private (chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      CloseGuard(Async[F].blocking[OutputStream] {
-        new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
-      })(
-        close = os => Async[F].blocking(os.close()),
-        // close() -> finish() writes the pending block, the EndMark and the content checksum.
-        abort = os =>
-          Async[F].blocking {
+      Resource
+        .make(Async[F].blocking[OutputStream] {
+          new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
+        })(os =>
+          // Safety net for the paths where the stream above did not get to close `os` itself:
+          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+          // completion and still frees what it owns, instead of blocking forever on a consumer that
+          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+          Async[F].void(Async[F].attempt(Async[F].blocking {
             outputStream.close()
             os.close()
-          }
-      ).use { os =>
-        (stream
-          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-      }
+          }))
+        )
+        .use { os =>
+          (stream
+            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+        }
     }
   }
 }

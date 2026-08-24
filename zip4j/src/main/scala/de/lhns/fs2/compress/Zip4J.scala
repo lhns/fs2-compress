@@ -67,19 +67,21 @@ object Zip4J {
 class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      CloseGuard(Async[F].delay {
-        val zipOutputStream = new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
-        zipOutputStream
-      })(
-        close = zipOutputStream => Async[F].blocking(zipOutputStream.close()),
-        // close() finalizes the zip file (central directory and end of central directory) into
-        // `outputStream`; closing the pipe first turns those writes into no-ops.
-        abort = zipOutputStream =>
-          Async[F].blocking {
+      Resource
+        .make(Async[F].delay {
+          val zipOutputStream = new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
+          zipOutputStream
+        })(os =>
+          // Safety net for the paths where the stream above did not get to close `os` itself:
+          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+          // completion and still frees what it owns, instead of blocking forever on a consumer that
+          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+          Async[F].void(Async[F].attempt(Async[F].blocking {
             outputStream.close()
-            zipOutputStream.close()
-          }
-      )
+            os.close()
+          }))
+        )
         .use { zipOutputStream =>
           (stream
             .through(checkUncompressedSize)

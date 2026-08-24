@@ -62,20 +62,20 @@ object Tar {
 class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      CloseGuard(Async[F].delay {
-        new TarArchiveOutputStream(outputStream)
-      })(
-        close = s => Async[F].blocking(s.close()),
-        // close() calls finish(), which writes two EOF records plus block padding into
-        // `outputStream`. Closing the pipe first makes those writes no-ops instead of blocking on a
-        // buffer nobody drains. finish() may also complain about unclosed entries; CloseGuard
-        // discards that, and ArchiveOutputStream.close() still runs.
-        abort = s =>
-          Async[F].blocking {
+      Resource
+        .make(Async[F].delay {
+          new TarArchiveOutputStream(outputStream)
+        })(os =>
+          // Safety net for the paths where the stream above did not get to close `os` itself:
+          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+          // completion and still frees what it owns, instead of blocking forever on a consumer that
+          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+          Async[F].void(Async[F].attempt(Async[F].blocking {
             outputStream.close()
-            s.close()
-          }
-      )
+            os.close()
+          }))
+        )
         .use { tarOutputStream =>
           (stream
             .flatMap { case (archiveEntry, stream) =>

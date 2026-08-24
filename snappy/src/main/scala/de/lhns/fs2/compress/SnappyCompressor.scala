@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import fs2.{Pipe, Stream}
 import fs2.io._
 import org.xerial.snappy.{
@@ -16,21 +16,25 @@ import java.io.{BufferedInputStream, InputStream, OutputStream}
 class SnappyCompressor[F[_]: Async] private (chunkSize: Int, mode: SnappyCompressor.WriteMode) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      CloseGuard(Async[F].blocking[OutputStream] {
-        mode.fromOutputStream(outputStream)
-      })(
-        close = os => Async[F].blocking(os.close()),
-        // Every WriteMode's close() flushes the pending block into `outputStream` first.
-        abort = os =>
-          Async[F].blocking {
+      Resource
+        .make(Async[F].blocking[OutputStream] {
+          mode.fromOutputStream(outputStream)
+        })(os =>
+          // Safety net for the paths where the stream above did not get to close `os` itself:
+          // cancellation, or an error. Closing the pipe first is what makes this non-blocking - writes
+          // to a closed PipedStreamBuffer are no-ops rather than errors, so `close()` runs to
+          // completion and still frees what it owns, instead of blocking forever on a consumer that
+          // stopped draining (#113). Any genuine close error has already surfaced from the stream.
+          Async[F].void(Async[F].attempt(Async[F].blocking {
             outputStream.close()
             os.close()
-          }
-      ).use { os =>
-        (stream
-          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-      }
+          }))
+        )
+        .use { os =>
+          (stream
+            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+        }
     }
   }
 }
