@@ -100,7 +100,11 @@ lazy val core = projectMatrix
       "org.typelevel" %%% "cats-effect" % V.catsEffect
     )
   )
-  .jvmPlatform(scalaVersions)
+  // fs2-io is JVM only here: OutputStreams wraps fs2.io.readOutputStream, which does not exist on JS.
+  .jvmPlatform(
+    scalaVersions,
+    Seq(libraryDependencies += "co.fs2" %% "fs2-io" % V.fs2)
+  )
   .jsPlatform(scalaVersions)
 
 lazy val gzip = projectMatrix
