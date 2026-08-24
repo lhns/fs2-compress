@@ -1,31 +1,21 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
-import fs2.Pipe
+import cats.effect.{Async, Resource}
+import fs2.{Pipe, Stream}
 import fs2.io._
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream}
 
 import java.io.{BufferedInputStream, OutputStream}
 
 class Bzip2Compressor[F[_]: Async] private (blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
-  override def compress: Pipe[F, Byte, Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(
-          writeOutputStream(
-            Async[F].blocking[OutputStream](
-              blockSize.fold(
-                new BZip2CompressorOutputStream(outputStream)
-              )(
-                new BZip2CompressorOutputStream(outputStream, _)
-              )
-            )
-          )
-        )
-        .compile
-        .drain
+  override def compress: Pipe[F, Byte, Byte] =
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
+      blockSize.fold(
+        new BZip2CompressorOutputStream(outputStream)
+      )(
+        new BZip2CompressorOutputStream(outputStream, _)
+      )
     }
-  }
 }
 
 object Bzip2Compressor {

@@ -15,14 +15,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4.4.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5.7.0
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'sbt'
           gpg-private-key: ${{ secrets.PGP_PRIVATE_KEY }}
-      - uses: sbt/setup-sbt@v1
+      - uses: sbt/setup-sbt@v1.5.8
       - name: Test
         env:
           CI_VERSION: ${{ github.ref }}
@@ -41,8 +41,8 @@ jobs:
     name: Update Dependency Graph
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: sbt/setup-sbt@v1
+      - uses: actions/checkout@v7
+      - uses: sbt/setup-sbt@v1.5.8
       - uses: scalacenter/sbt-dependency-submission@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

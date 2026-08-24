@@ -1,23 +1,18 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import com.aayushatharva.brotli4j.Brotli4jLoader
 import com.aayushatharva.brotli4j.encoder.{BrotliOutputStream, Encoder}
 import com.aayushatharva.brotli4j.decoder.BrotliInputStream
 import fs2.{Pipe, Stream}
 import fs2.io._
 
+import java.io.OutputStream
+
 class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.Parameters) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream.exec(Async[F].blocking(Brotli4jLoader.ensureAvailability())).covaryOutput[Byte] ++
-      readOutputStream[F](chunkSize) { outputStream =>
-        stream
-          .through(
-            writeOutputStream[F](Async[F].blocking(new BrotliOutputStream(outputStream, params)))
-          )
-          .compile
-          .drain
-      }
+      stream.through(OutputStreams.throughOutputStream[F](chunkSize)(new BrotliOutputStream(_, params)))
   }
 }
 

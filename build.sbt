@@ -1,22 +1,24 @@
-lazy val scalaVersions = Seq("3.5.1", "2.13.15", "2.12.20")
+lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
 
 ThisBuild / scalaVersion := scalaVersions.head
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / organization := "de.lhns"
+ThisBuild / version := (core.projectRefs.head / version).value
 name := (core.projectRefs.head / name).value
 
 val V = new {
   val betterMonadicFor = "0.3.1"
   val brotli = "0.1.2"
-  val brotli4j = "1.17.0"
-  val catsEffect = "3.5.4"
-  val commonsCompress = "1.27.1"
-  val fs2 = "3.11.0"
-  val logbackClassic = "1.5.9"
-  val lz4 = "1.8.0"
-  val munitCatsEffect = "2.0.0"
-  val zip4j = "2.11.5"
-  val zstdJni = "1.5.6-6"
+  val brotli4j = "1.23.0"
+  val catsEffect = "3.7.0"
+  val commonsCompress = "1.28.0"
+  val fs2 = "3.13.0"
+  val logbackClassic = "1.6.3"
+  val lz4 = "1.8.1"
+  val munitCatsEffect = "2.2.0"
+  val snappy = "1.1.10.8"
+  val zip4j = "2.11.6"
+  val zstdJni = "1.5.7-15"
 }
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
@@ -56,7 +58,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
   publishTo := sonatypePublishToBundle.value,
-  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  sonatypeCredentialHost := Sonatype.sonatypeCentralHost,
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")
     password <- sys.env.get("SONATYPE_PASSWORD")
@@ -86,6 +88,7 @@ lazy val root: Project =
     .aggregate(brotli.projectRefs: _*)
     .aggregate(brotli4j.projectRefs: _*)
     .aggregate(lz4.projectRefs: _*)
+    .aggregate(snappy.projectRefs: _*)
 
 lazy val core = projectMatrix
   .in(file("core"))
@@ -97,7 +100,11 @@ lazy val core = projectMatrix
       "org.typelevel" %%% "cats-effect" % V.catsEffect
     )
   )
-  .jvmPlatform(scalaVersions)
+  // fs2-io is JVM only here: OutputStreams wraps fs2.io.readOutputStream, which does not exist on JS.
+  .jvmPlatform(
+    scalaVersions,
+    Seq(libraryDependencies += "co.fs2" %% "fs2-io" % V.fs2)
+  )
   .jsPlatform(scalaVersions)
 
 lazy val gzip = projectMatrix
@@ -213,6 +220,19 @@ lazy val lz4 = projectMatrix
     libraryDependencies ++= Seq(
       "co.fs2" %%% "fs2-io" % V.fs2,
       "org.lz4" % "lz4-java" % V.lz4
+    )
+  )
+  .jvmPlatform(scalaVersions)
+
+lazy val snappy = projectMatrix
+  .in(file("snappy"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(commonSettings)
+  .settings(
+    name := "fs2-compress-snappy",
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % V.fs2,
+      "org.xerial.snappy" % "snappy-java" % V.snappy
     )
   )
   .jvmPlatform(scalaVersions)

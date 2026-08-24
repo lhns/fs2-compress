@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.{Async, Deferred, Resource}
+import cats.effect.{Async, Resource}
 import cats.syntax.functor._
 import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
 import de.lhns.fs2.compress.Tar._
@@ -61,29 +61,19 @@ object Tar {
 
 class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          new TarArchiveOutputStream(outputStream)
-        })(s => Async[F].blocking(s.close()))
-        .use { tarOutputStream =>
-          stream
-            .flatMap { case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[TarArchiveEntry]
+    OutputStreams.readWrappedOutputStream[F, TarArchiveOutputStream](chunkSize) { outputStream =>
+      new TarArchiveOutputStream(outputStream)
+    } { tarOutputStream =>
+      stream
+        .flatMap { case (archiveEntry, stream) =>
+          def entry = archiveEntry.underlying[TarArchiveEntry]
 
-              Stream
-                .resource(
-                  Resource.make(
-                    Async[F].blocking(tarOutputStream.putArchiveEntry(entry))
-                  )(_ => Async[F].blocking(tarOutputStream.closeArchiveEntry()))
-                )
-                .flatMap(_ =>
-                  stream
-                    .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false))
-                )
-            }
-            .compile
-            .drain
+          // These writes happen in the stream rather than in a Resource so that they can be
+          // cancelled. See OutputStreams.
+          Stream.exec(Async[F].interruptible(tarOutputStream.putArchiveEntry(entry))) ++
+            stream
+              .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(tarOutputStream.closeArchiveEntry()))
         }
     }
   }
@@ -109,27 +99,12 @@ class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
         )
       }
       .flatMap { tarInputStream =>
-        def readEntries: Stream[F, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] =
-          Stream
-            .eval(Async[F].blocking(Option(tarInputStream.getNextEntry)))
-            .flatMap(Stream.fromOption[F](_))
-            .flatMap { entry =>
-              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
-
-              Stream
-                .eval(Deferred[F, Unit])
-                .flatMap { deferred =>
-                  Stream.emit(
-                    readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false) ++
-                      Stream.exec(deferred.complete(()).void)
-                  ) ++
-                    Stream.exec(deferred.get)
-                }
-                .map(stream => (archiveEntry, stream)) ++
-                readEntries
-            }
-
-        readEntries
+        Unarchiver
+          .readEntries(
+            Async[F].blocking(Option(tarInputStream.getNextEntry)),
+            readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false)
+          )
+          .map { case (entry, data) => (ArchiveEntry.fromUnderlying(entry), data) }
       }
   }
 }

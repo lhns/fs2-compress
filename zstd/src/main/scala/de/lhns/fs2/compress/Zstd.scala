@@ -1,27 +1,21 @@
 package de.lhns.fs2.compress
 
-import cats.effect.Async
+import cats.effect.{Async, Resource}
 import com.github.luben.zstd.{ZstdInputStream, ZstdOutputStream}
-import fs2.Pipe
+import fs2.{Pipe, Stream}
 import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
 
 class ZstdCompressor[F[_]: Async] private (level: Option[Int], workers: Option[Int], chunkSize: Int)
     extends Compressor[F] {
-  override def compress: Pipe[F, Byte, Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(writeOutputStream(Async[F].blocking[OutputStream] {
-          val zstdOutputStream = new ZstdOutputStream(outputStream)
-          level.foreach(zstdOutputStream.setLevel)
-          workers.foreach(zstdOutputStream.setWorkers)
-          zstdOutputStream
-        }))
-        .compile
-        .drain
+  override def compress: Pipe[F, Byte, Byte] =
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
+      val zstdOutputStream = new ZstdOutputStream(outputStream)
+      level.foreach(zstdOutputStream.setLevel)
+      workers.foreach(zstdOutputStream.setWorkers)
+      zstdOutputStream
     }
-  }
 }
 
 object ZstdCompressor {
