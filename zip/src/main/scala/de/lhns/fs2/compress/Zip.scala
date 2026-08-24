@@ -65,8 +65,8 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
         .flatMap { case (archiveEntry, stream) =>
           def entry = archiveEntry.underlying[ZipEntry]
 
-          // In the stream rather than a Resource, so that these writes stay cancelable.
-          // See OutputStreams.
+          // These writes happen in the stream rather than in a Resource so that they can be
+          // cancelled. See OutputStreams.
           Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
             stream
               .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
@@ -114,8 +114,10 @@ class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
       .flatMap { zipInputStream =>
         def readEntries: Stream[F, (ArchiveEntry[Option, ZipEntry], Stream[F, Byte])] =
           Stream
-            // No closeEntry() finalizer: getNextEntry() already calls it before advancing, and
-            // running it uninterruptibly on cancellation drained the whole remaining entry (#113).
+            // There is no closeEntry() finalizer here. getNextEntry() already calls closeEntry()
+            // before it advances, so it was redundant, and because a finalizer cannot be
+            // interrupted it drained the whole remaining entry whenever the stream was cancelled
+            // (#113).
             .eval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>

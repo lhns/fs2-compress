@@ -68,8 +68,8 @@ class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some
         .flatMap { case (archiveEntry, stream) =>
           def entry = archiveEntry.underlying[TarArchiveEntry]
 
-          // In the stream rather than a Resource, so that these writes stay cancelable.
-          // See OutputStreams.
+          // These writes happen in the stream rather than in a Resource so that they can be
+          // cancelled. See OutputStreams.
           Stream.exec(Async[F].interruptible(tarOutputStream.putArchiveEntry(entry))) ++
             stream
               .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false)) ++
