@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.{Async, Deferred, Resource}
+import cats.effect.{Async, Resource}
 import cats.syntax.functor._
 import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
 import de.lhns.fs2.compress.Tar._
@@ -99,27 +99,12 @@ class TarUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
         )
       }
       .flatMap { tarInputStream =>
-        def readEntries: Stream[F, (ArchiveEntry[Option, TarArchiveEntry], Stream[F, Byte])] =
-          Stream
-            .eval(Async[F].blocking(Option(tarInputStream.getNextEntry)))
-            .flatMap(Stream.fromOption[F](_))
-            .flatMap { entry =>
-              val archiveEntry = ArchiveEntry.fromUnderlying(entry)
-
-              Stream
-                .eval(Deferred[F, Unit])
-                .flatMap { deferred =>
-                  Stream.emit(
-                    readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false) ++
-                      Stream.exec(deferred.complete(()).void)
-                  ) ++
-                    Stream.exec(deferred.get)
-                }
-                .map(stream => (archiveEntry, stream)) ++
-                readEntries
-            }
-
-        readEntries
+        Unarchiver
+          .readEntries(
+            Async[F].blocking(Option(tarInputStream.getNextEntry)),
+            readInputStream(Async[F].pure[InputStream](tarInputStream), chunkSize, closeAfterUse = false)
+          )
+          .map { case (entry, data) => (ArchiveEntry.fromUnderlying(entry), data) }
       }
   }
 }
