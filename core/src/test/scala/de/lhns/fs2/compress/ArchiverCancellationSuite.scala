@@ -25,31 +25,32 @@ abstract class ArchiverCancellationSuite[Underlying] extends CompressorCancellat
   override protected def decompressor(chunkSize: Int): Decompressor[IO] =
     ArchiveSingleFileDecompressor(unarchiver(chunkSize))
 
-  test("unarchive: cancellation completes while an entry body is still arriving") {
-    // This is issue #113 itself. We are inside the entry, the source is still delivering, and three
-    // quarters of the entry have yet to arrive. Cancelling must not wait for the rest of it.
+  test("unarchive: cancelling inside an entry stops reading from the source") {
+    // Cancelling here leaves most of the entry unread. Closing the entry would read all of it just
+    // to get past it, and that is what must not happen.
     for {
       archived <- compressedSample
-      inEntry <- Deferred[IO, Unit]
-      program = slowSource(archived, headSize(archived.size))
-        .through(unarchiver(Defaults.defaultChunkSize).unarchive)
-        .flatMap { case (_, body) => body.through(signalFirstChunk(inEntry)) }
+      arrived <- Deferred[IO, Unit]
+      sourceAndCount <- countingSource(archived)
+      (source, pulled) = sourceAndCount
+      program = source
+        .through(unarchiver(readChunkSize).unarchive)
+        .flatMap { case (_, body) => body.through(pauseAfterFirstChunk(arrived)) }
         .compile
         .drain
-      _ <- assertCancelsPromptly(program, inEntry.get)
+      _ <- cancelStopsReading(program, arrived, pulled)
     } yield ()
   }
 
-  test("unarchive: not consuming an entry body still terminates") {
-    // The source here is deliberately in memory and not slowed down. `take` finishes with
-    // ExitCase.Succeeded rather than a cancellation, so skipping to the end of the entry is work
-    // that should still happen. This test guards against a fix that deadlocks that path.
+  test("unarchive: not reading an entry still finishes") {
+    // Here nothing is cancelled. `take` finishes with ExitCase.Succeeded, so skipping to the end of
+    // the entry is work that should still happen, and this guards against a fix that deadlocks it.
     for {
       archived <- compressedSample
-      _ <- assertCompletesPromptly(
+      _ <- finishes(
         Stream
           .chunk(archived)
-          .through(unarchiver(Defaults.defaultChunkSize).unarchive)
+          .through(unarchiver(readChunkSize).unarchive)
           .take(1)
           .map(_ => ())
           .compile
