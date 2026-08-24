@@ -116,8 +116,7 @@ class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
           Stream
             // There is no closeEntry() finalizer here. getNextEntry() already calls closeEntry()
             // before it advances, so it was redundant, and because a finalizer cannot be
-            // interrupted it drained the whole remaining entry whenever the stream was cancelled
-            // (#113).
+            // interrupted it drained the whole remaining entry whenever the stream was cancelled.
             .eval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>

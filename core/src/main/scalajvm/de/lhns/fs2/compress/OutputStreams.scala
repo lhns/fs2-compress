@@ -10,7 +10,7 @@ import java.io.OutputStream
   *
   * Cancellation is the reason these exist. `Async[F].blocking` cannot be interrupted, and a `Resource` can be cancelled
   * neither while it acquires nor while it releases. A write in one of those places therefore blocks forever once the
-  * consumer stops draining the pipe, and the cancellation never arrives (issue #113).
+  * consumer stops draining the pipe, and the cancellation never arrives.
   */
 private[compress] object OutputStreams {
 

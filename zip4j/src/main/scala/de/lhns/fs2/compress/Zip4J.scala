@@ -114,8 +114,7 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
         def readEntries: Stream[F, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] =
           Stream
             // There is no closeEntry() finalizer here. getNextEntry() already reads to the end of
-            // the previous entry, and a drain that cannot be interrupted would block cancellation
-            // (#113).
+            // the previous entry, and a drain that cannot be interrupted would block cancellation.
             .eval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>
