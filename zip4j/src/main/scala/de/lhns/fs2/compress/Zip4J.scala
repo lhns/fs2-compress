@@ -98,7 +98,7 @@ object Zip4JArchiver {
     new Zip4JArchiver(password, chunkSize)
 }
 
-class Zip4JUnarchiver[F[_]: Async] private (password: Option[String], chunkSize: Int)
+class Zip4JUnarchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int)
     extends Unarchiver[F, Option, LocalFileHeader] {
   def unarchive: Pipe[F, Byte, (ArchiveEntry[Option, LocalFileHeader], Stream[F, Byte])] = { stream =>
     stream
@@ -108,9 +108,9 @@ class Zip4JUnarchiver[F[_]: Async] private (password: Option[String], chunkSize:
         Stream.resource(
           Resource.make(
             Async[F].blocking {
-              val zis = new ZipInputStream(inputStream)
-              password.foreach(pw => zis.setPassword(pw.toCharArray))
-              zis
+              val zipInputStream = new ZipInputStream(inputStream)
+              password.foreach(pw => zipInputStream.setPassword(pw.toCharArray))
+              zipInputStream
             }
           )(s => Async[F].blocking(s.close()))
         )
@@ -131,6 +131,8 @@ class Zip4JUnarchiver[F[_]: Async] private (password: Option[String], chunkSize:
 object Zip4JUnarchiver {
   def apply[F[_]](implicit instance: Zip4JUnarchiver[F]): Zip4JUnarchiver[F] = instance
 
+  // `password` comes after `chunkSize` here, the other way round from Zip4JArchiver.make. Putting it
+  // first would change the meaning of an existing positional make(chunkSize) call.
   def make[F[_]: Async](
       chunkSize: Int = Defaults.defaultChunkSize,
       password: => Option[String] = None

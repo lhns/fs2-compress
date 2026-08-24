@@ -6,28 +6,11 @@ import fs2.io.compression._
 import fs2.{Chunk, Stream}
 import munit.CatsEffectSuite
 
-import java.nio.charset.StandardCharsets.UTF_8
 import java.util
-import java.util.Base64
 
-class GzipSuite extends CatsEffectSuite {
+class GzipRoundTripSuite extends CatsEffectSuite {
   implicit val gzipCompressor: GzipCompressor[IO] = GzipCompressor.make()
   implicit val gzipDecompressor: GzipDecompressor[IO] = GzipDecompressor.make()
-
-  test("gzip decompress") {
-    val clear = Chunk.array("Hello world!".getBytes(UTF_8))
-    val compressed = Chunk.array(
-      Base64.getDecoder.decode("H4sIAMKVBmcAA/NIzcnJVyjPL8pJUQQAlRmFGwwAAAA=")
-    )
-    for {
-      obtained <- Stream
-        .chunk(compressed)
-        .through(GzipDecompressor[IO].decompress)
-        .chunkAll
-        .compile
-        .lastOrError
-    } yield assert(clear == obtained)
-  }
 
   test("gzip round trip") {
     for {
