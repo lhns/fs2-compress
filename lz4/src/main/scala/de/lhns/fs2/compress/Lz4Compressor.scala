@@ -1,23 +1,17 @@
 package de.lhns.fs2.compress
 
 import net.jpountz.lz4.{LZ4FrameOutputStream, LZ4FrameInputStream}
-import cats.effect.Async
-import fs2.Pipe
+import cats.effect.{Async, Resource}
+import fs2.{Pipe, Stream}
 import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
 
 class Lz4Compressor[F[_]: Async] private (chunkSize: Int) extends Compressor[F] {
-  override def compress: Pipe[F, Byte, Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(writeOutputStream(Async[F].blocking[OutputStream] {
-          new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
-        }))
-        .compile
-        .drain
+  override def compress: Pipe[F, Byte, Byte] =
+    OutputStreams.throughOutputStream[F](chunkSize) { outputStream =>
+      new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
     }
-  }
 }
 
 object Lz4Compressor {
