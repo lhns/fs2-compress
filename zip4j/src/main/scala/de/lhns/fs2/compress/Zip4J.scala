@@ -1,6 +1,6 @@
 package de.lhns.fs2.compress
 
-import cats.effect.{Async, Deferred, Resource}
+import cats.effect.{Async, Resource}
 import cats.syntax.functor._
 import de.lhns.fs2.compress.ArchiveEntry.{ArchiveEntryFromUnderlying, ArchiveEntryToUnderlying}
 import de.lhns.fs2.compress.Archiver.checkUncompressedSize
@@ -111,22 +111,14 @@ class Zip4JUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F
         )
       }
       .flatMap { zipInputStream =>
-        Stream
-          // There is no closeEntry() finalizer here. getNextEntry() already reads to the end of
-          // the previous entry, and a drain that cannot be interrupted would block cancellation.
-          .repeatEval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
-          .unNoneTerminate
-          .map { entry =>
-            val archiveEntry = ArchiveEntry.fromUnderlying(entry)
-
-            archiveEntry -> Stream
-              .eval(Deferred[F, Unit])
-              .flatMap { deferred =>
-                (readInputStream(Async[F].pure[InputStream](zipInputStream), chunkSize, closeAfterUse = false) ++
-                  Stream.exec(deferred.complete(()).void)) ++
-                  Stream.exec(deferred.get)
-              }
-          }
+        Unarchiver
+          .entries(
+            // There is no closeEntry() finalizer here. getNextEntry() already reads to the end of
+            // the previous entry, and a drain that cannot be interrupted would block cancellation.
+            Async[F].blocking(Option(zipInputStream.getNextEntry)),
+            readInputStream(Async[F].pure[InputStream](zipInputStream), chunkSize, closeAfterUse = false)
+          )
+          .map { case (entry, data) => (ArchiveEntry.fromUnderlying(entry), data) }
       }
   }
 }

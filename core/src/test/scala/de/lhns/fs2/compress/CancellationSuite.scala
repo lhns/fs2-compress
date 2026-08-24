@@ -136,8 +136,8 @@ trait CancellationSuite extends CatsEffectSuite {
         case Left(_: TimeoutException) =>
           IO(
             fail(
-              s"the stream did not finish within $liveBudget, which means a finalizer is stuck in an " +
-                "Async[F].blocking call that cannot be interrupted"
+              s"the stream did not finish within $liveBudget, so it is stuck: either waiting on something that will " +
+                "never happen, or inside an Async[F].blocking call that cannot be interrupted"
             )
           )
         case Left(t) => IO.raiseError(t)
