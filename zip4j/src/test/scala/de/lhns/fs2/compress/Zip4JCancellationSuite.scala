@@ -8,5 +8,5 @@ class Zip4JCancellationSuite extends ArchiverCancellationSuite[LocalFileHeader] 
     ArchiveSingleFileCompressor.forName[IO](Zip4JArchiver.make[IO](chunkSize = chunkSize), name, size)
 
   override protected def unarchiver(chunkSize: Int): Unarchiver[IO, Option, LocalFileHeader] =
-    Zip4JUnarchiver.make[IO](chunkSize)
+    Zip4JUnarchiver.make[IO](chunkSize = chunkSize)
 }

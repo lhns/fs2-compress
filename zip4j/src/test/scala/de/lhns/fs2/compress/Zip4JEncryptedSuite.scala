@@ -10,8 +10,8 @@ import java.util.Base64
   *
   * Only reading is covered. Writing does not encrypt yet: Zip4JArchiver takes a password and hands it to the
   * ZipOutputStream, but never sets encryptFiles or an encryption method on the ZipParameters, so zip4j writes the
-  * entries in the clear and the password has no effect. A round trip through this library would therefore pass
-  * whether or not encryption worked, which is why there is no round trip test here.
+  * entries in the clear and the password has no effect. A round trip through this library would therefore pass whether
+  * or not encryption worked, which is why there is no round trip test here.
   */
 class Zip4JEncryptedSuite extends CatsEffectSuite {
 

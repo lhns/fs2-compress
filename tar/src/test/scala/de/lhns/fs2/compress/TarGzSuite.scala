@@ -42,8 +42,7 @@ class TarGzSuite extends CatsEffectSuite {
         .through(GzipDecompressor[IO].decompress)
         .through(TarUnarchiver[IO].unarchive)
         .flatMap { case (archiveEntry, stream) =>
-          stream
-            .chunkAll
+          stream.chunkAll
             .map(content => archiveEntry.name -> new String(content.toArray))
         }
         .chunkAll

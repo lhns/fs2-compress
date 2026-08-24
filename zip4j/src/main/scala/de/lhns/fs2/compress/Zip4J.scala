@@ -131,11 +131,9 @@ class Zip4JUnarchiver[F[_]: Async] private (password: => Option[String], chunkSi
 object Zip4JUnarchiver {
   def apply[F[_]](implicit instance: Zip4JUnarchiver[F]): Zip4JUnarchiver[F] = instance
 
-  // `password` comes after `chunkSize` here, the other way round from Zip4JArchiver.make. Putting it
-  // first would change the meaning of an existing positional make(chunkSize) call.
   def make[F[_]: Async](
-      chunkSize: Int = Defaults.defaultChunkSize,
-      password: => Option[String] = None
+      password: => Option[String] = None,
+      chunkSize: Int = Defaults.defaultChunkSize
   ): Zip4JUnarchiver[F] =
     new Zip4JUnarchiver(password, chunkSize)
 }
