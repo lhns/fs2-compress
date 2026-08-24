@@ -94,7 +94,10 @@ class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize
               Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
                 stream
                   .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
-                Stream.exec(Async[F].interruptible(zipOutputStream.closeEntry()))
+                Stream.exec(Async[F].interruptible {
+                  zipOutputStream.closeEntry()
+                  ()
+                })
             } ++
             // Closing the codec here rather than in the resource finalizer is deliberate: this is a
             // cancelable region, so an interrupted close aborts and lets the finalizer close the
