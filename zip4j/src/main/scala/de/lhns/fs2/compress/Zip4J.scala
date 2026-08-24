@@ -66,36 +66,23 @@ object Zip4J {
 
 class Zip4JArchiver[F[_]: Async] private (password: => Option[String], chunkSize: Int) extends Archiver[F, Some] {
   def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          val zipOutputStream = new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
-          zipOutputStream
-        })(OutputStreams.abandoning[F](outputStream))
-        .use { zipOutputStream =>
-          (stream
-            .through(checkUncompressedSize)
-            .flatMap { case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[ZipParameters]
+    OutputStreams.write[F, ZipOutputStream](chunkSize) { outputStream =>
+      new ZipOutputStream(outputStream, password.map(_.toCharArray).orNull)
+    } { zipOutputStream =>
+      stream
+        .through(checkUncompressedSize)
+        .flatMap { case (archiveEntry, stream) =>
+          def entry = archiveEntry.underlying[ZipParameters]
 
-              // The entry header and trailer are written inside the stream rather than through a
-              // Resource. Resource acquire and release are both uncancelable, so writing them there
-              // blocks forever once the consumer stops draining the readOutputStream pipe. Here they
-              // sit in a cancelable region, so an interrupted write aborts and lets the enclosing
-              // finalizer close the pipe. On the happy path the byte order is unchanged.
-              Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
-                stream
-                  .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
-                Stream.exec(Async[F].interruptible {
-                  zipOutputStream.closeEntry()
-                  ()
-                })
-            } ++
-            // Closing the codec here rather than in the resource finalizer is deliberate: this is a
-            // cancelable region, so an interrupted close aborts and lets the finalizer close the
-            // pipe. In a finalizer the same call is uninterruptible and blocks forever whenever the
-            // consumer has stopped draining (#113).
-            Stream.exec(Async[F].interruptible(zipOutputStream.close()))).compile.drain
+          // In the stream rather than a Resource, so that these writes stay cancelable.
+          // See OutputStreams.
+          Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
+            stream
+              .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible {
+              zipOutputStream.closeEntry()
+              ()
+            })
         }
     }
   }

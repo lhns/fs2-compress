@@ -55,34 +55,22 @@ object Zip {
 
 class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int) extends Archiver[F, Size] {
   override def archive: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          val zipOutputStream = new ZipOutputStream(outputStream)
-          zipOutputStream.setMethod(method)
-          zipOutputStream
-        })(OutputStreams.abandoning[F](outputStream))
-        .use { zipOutputStream =>
-          (stream
-            .through(checkUncompressedSize)
-            .flatMap { case (archiveEntry, stream) =>
-              def entry = archiveEntry.underlying[ZipEntry]
+    OutputStreams.write[F, ZipOutputStream](chunkSize) { outputStream =>
+      val zipOutputStream = new ZipOutputStream(outputStream)
+      zipOutputStream.setMethod(method)
+      zipOutputStream
+    } { zipOutputStream =>
+      stream
+        .through(checkUncompressedSize)
+        .flatMap { case (archiveEntry, stream) =>
+          def entry = archiveEntry.underlying[ZipEntry]
 
-              // The entry header and trailer are written inside the stream rather than through a
-              // Resource. Resource acquire and release are both uncancelable, so writing them there
-              // blocks forever once the consumer stops draining the readOutputStream pipe. Here they
-              // sit in a cancelable region, so an interrupted write aborts and lets the enclosing
-              // finalizer close the pipe. On the happy path the byte order is unchanged.
-              Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
-                stream
-                  .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
-                Stream.exec(Async[F].interruptible(zipOutputStream.closeEntry()))
-            } ++
-            // Closing the codec here rather than in the resource finalizer is deliberate: this is a
-            // cancelable region, so an interrupted close aborts and lets the finalizer close the
-            // pipe. In a finalizer the same call is uninterruptible and blocks forever whenever the
-            // consumer has stopped draining (#113).
-            Stream.exec(Async[F].interruptible(zipOutputStream.close()))).compile.drain
+          // In the stream rather than a Resource, so that these writes stay cancelable.
+          // See OutputStreams.
+          Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
+            stream
+              .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(zipOutputStream.closeEntry()))
         }
     }
   }
@@ -126,11 +114,8 @@ class ZipUnarchiver[F[_]: Async] private (chunkSize: Int) extends Unarchiver[F, 
       .flatMap { zipInputStream =>
         def readEntries: Stream[F, (ArchiveEntry[Option, ZipEntry], Stream[F, Byte])] =
           Stream
-            // Deliberately no closeEntry() finalizer: ZipInputStream.getNextEntry() calls
-            // closeEntry() itself before advancing, so it was redundant. Because finalizers run
-            // uninterruptibly it drained the whole remaining entry from the still live upstream on
-            // cancellation, which is why the stream could not be cancelled (#113). This matches
-            // TarUnarchiver, which never had one, and Zip4JUnarchiver, where it is commented out.
+            // No closeEntry() finalizer: getNextEntry() already calls it before advancing, and
+            // running it uninterruptibly on cancellation drained the whole remaining entry (#113).
             .eval(Async[F].blocking(Option(zipInputStream.getNextEntry)))
             .flatMap(Stream.fromOption[F](_))
             .flatMap { entry =>

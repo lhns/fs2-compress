@@ -14,19 +14,8 @@ import org.xerial.snappy.{
 import java.io.{BufferedInputStream, InputStream, OutputStream}
 
 class SnappyCompressor[F[_]: Async] private (chunkSize: Int, mode: SnappyCompressor.WriteMode) extends Compressor[F] {
-  override def compress: Pipe[F, Byte, Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].blocking[OutputStream] {
-          mode.fromOutputStream(outputStream)
-        })(OutputStreams.abandoning[F](outputStream))
-        .use { os =>
-          (stream
-            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-        }
-    }
-  }
+  override def compress: Pipe[F, Byte, Byte] =
+    OutputStreams.compress[F](chunkSize)(mode.fromOutputStream)
 }
 
 object SnappyCompressor {

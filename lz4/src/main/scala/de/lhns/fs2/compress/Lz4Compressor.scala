@@ -8,19 +8,10 @@ import fs2.io._
 import java.io.{BufferedInputStream, OutputStream}
 
 class Lz4Compressor[F[_]: Async] private (chunkSize: Int) extends Compressor[F] {
-  override def compress: Pipe[F, Byte, Byte] = { stream =>
-    readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].blocking[OutputStream] {
-          new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
-        })(OutputStreams.abandoning[F](outputStream))
-        .use { os =>
-          (stream
-            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
-            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
-        }
+  override def compress: Pipe[F, Byte, Byte] =
+    OutputStreams.compress[F](chunkSize) { outputStream =>
+      new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
     }
-  }
 }
 
 object Lz4Compressor {
