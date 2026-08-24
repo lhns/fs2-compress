@@ -2,7 +2,7 @@ package de.lhns.fs2.compress
 
 import net.jpountz.lz4.{LZ4FrameOutputStream, LZ4FrameInputStream}
 import cats.effect.Async
-import fs2.Pipe
+import fs2.{Pipe, Stream}
 import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
@@ -10,12 +10,21 @@ import java.io.{BufferedInputStream, OutputStream}
 class Lz4Compressor[F[_]: Async] private (chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(writeOutputStream(Async[F].blocking[OutputStream] {
-          new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
-        }))
-        .compile
-        .drain
+      CloseGuard(Async[F].blocking[OutputStream] {
+        new LZ4FrameOutputStream(outputStream, LZ4FrameOutputStream.BLOCKSIZE.SIZE_256KB)
+      })(
+        close = os => Async[F].blocking(os.close()),
+        // close() -> finish() writes the pending block, the EndMark and the content checksum.
+        abort = os =>
+          Async[F].blocking {
+            outputStream.close()
+            os.close()
+          }
+      ).use { os =>
+        (stream
+          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+      }
     }
   }
 }

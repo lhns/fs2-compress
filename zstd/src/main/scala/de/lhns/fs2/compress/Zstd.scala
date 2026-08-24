@@ -2,7 +2,7 @@ package de.lhns.fs2.compress
 
 import cats.effect.Async
 import com.github.luben.zstd.{ZstdInputStream, ZstdOutputStream}
-import fs2.Pipe
+import fs2.{Pipe, Stream}
 import fs2.io._
 
 import java.io.{BufferedInputStream, OutputStream}
@@ -11,15 +11,26 @@ class ZstdCompressor[F[_]: Async] private (level: Option[Int], workers: Option[I
     extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(writeOutputStream(Async[F].blocking[OutputStream] {
-          val zstdOutputStream = new ZstdOutputStream(outputStream)
-          level.foreach(zstdOutputStream.setLevel)
-          workers.foreach(zstdOutputStream.setWorkers)
-          zstdOutputStream
-        }))
-        .compile
-        .drain
+      CloseGuard(Async[F].blocking[OutputStream] {
+        val zstdOutputStream = new ZstdOutputStream(outputStream)
+        level.foreach(zstdOutputStream.setLevel)
+        workers.foreach(zstdOutputStream.setWorkers)
+        zstdOutputStream
+      })(
+        close = os => Async[F].blocking(os.close()),
+        // close() loops endStream -> out.write(...) before freeing the native compression context
+        // in its finally. Closing the pipe first makes those writes no-ops, so the context is still
+        // released and cancellation is not blocked.
+        abort = os =>
+          Async[F].blocking {
+            outputStream.close()
+            os.close()
+          }
+      ).use { os =>
+        (stream
+          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+      }
     }
   }
 }

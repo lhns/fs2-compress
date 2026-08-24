@@ -1,7 +1,7 @@
 package de.lhns.fs2.compress
 
 import cats.effect.Async
-import fs2.Pipe
+import fs2.{Pipe, Stream}
 import fs2.io._
 import org.xerial.snappy.{
   SnappyFramedInputStream,
@@ -16,12 +16,21 @@ import java.io.{BufferedInputStream, InputStream, OutputStream}
 class SnappyCompressor[F[_]: Async] private (chunkSize: Int, mode: SnappyCompressor.WriteMode) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(writeOutputStream(Async[F].blocking[OutputStream] {
-          mode.fromOutputStream(outputStream)
-        }))
-        .compile
-        .drain
+      CloseGuard(Async[F].blocking[OutputStream] {
+        mode.fromOutputStream(outputStream)
+      })(
+        close = os => Async[F].blocking(os.close()),
+        // Every WriteMode's close() flushes the pending block into `outputStream` first.
+        abort = os =>
+          Async[F].blocking {
+            outputStream.close()
+            os.close()
+          }
+      ).use { os =>
+        (stream
+          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+      }
     }
   }
 }

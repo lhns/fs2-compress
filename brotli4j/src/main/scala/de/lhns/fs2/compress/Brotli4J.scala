@@ -7,16 +7,26 @@ import com.aayushatharva.brotli4j.decoder.BrotliInputStream
 import fs2.{Pipe, Stream}
 import fs2.io._
 
+import java.io.OutputStream
+
 class Brotli4JCompressor[F[_]: Async] private (chunkSize: Int, params: Encoder.Parameters) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     Stream.exec(Async[F].blocking(Brotli4jLoader.ensureAvailability())).covaryOutput[Byte] ++
       readOutputStream[F](chunkSize) { outputStream =>
-        stream
-          .through(
-            writeOutputStream[F](Async[F].blocking(new BrotliOutputStream(outputStream, params)))
-          )
-          .compile
-          .drain
+        CloseGuard(Async[F].blocking[OutputStream](new BrotliOutputStream(outputStream, params)))(
+          close = os => Async[F].blocking(os.close()),
+          // close() finishes the stream into `outputStream` before releasing the native encoder;
+          // with the pipe closed the writes are no-ops and the encoder is still freed.
+          abort = os =>
+            Async[F].blocking {
+              outputStream.close()
+              os.close()
+            }
+        ).use { os =>
+          (stream
+            .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+            Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+        }
       }
   }
 }

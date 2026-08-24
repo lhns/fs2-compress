@@ -62,28 +62,40 @@ object Tar {
 class TarArchiver[F[_]: Async] private (chunkSize: Int) extends Archiver[F, Some] {
   override def archive: Pipe[F, (ArchiveEntry[Some, Any], Stream[F, Byte]), Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      Resource
-        .make(Async[F].delay {
-          new TarArchiveOutputStream(outputStream)
-        })(s => Async[F].blocking(s.close()))
+      CloseGuard(Async[F].delay {
+        new TarArchiveOutputStream(outputStream)
+      })(
+        close = s => Async[F].blocking(s.close()),
+        // close() calls finish(), which writes two EOF records plus block padding into
+        // `outputStream`. Closing the pipe first makes those writes no-ops instead of blocking on a
+        // buffer nobody drains. finish() may also complain about unclosed entries; CloseGuard
+        // discards that, and ArchiveOutputStream.close() still runs.
+        abort = s =>
+          Async[F].blocking {
+            outputStream.close()
+            s.close()
+          }
+      )
         .use { tarOutputStream =>
-          stream
+          (stream
             .flatMap { case (archiveEntry, stream) =>
               def entry = archiveEntry.underlying[TarArchiveEntry]
 
-              Stream
-                .resource(
-                  Resource.make(
-                    Async[F].blocking(tarOutputStream.putArchiveEntry(entry))
-                  )(_ => Async[F].blocking(tarOutputStream.closeArchiveEntry()))
-                )
-                .flatMap(_ =>
-                  stream
-                    .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false))
-                )
-            }
-            .compile
-            .drain
+              // The entry header and trailer are written inside the stream rather than through a
+              // Resource. Resource acquire and release are both uncancelable, so writing them there
+              // blocks forever once the consumer stops draining the readOutputStream pipe. Here they
+              // sit in a cancelable region, so an interrupted write aborts and lets the enclosing
+              // finalizer close the pipe. On the happy path the byte order is unchanged.
+              Stream.exec(Async[F].interruptible(tarOutputStream.putArchiveEntry(entry))) ++
+                stream
+                  .through(writeOutputStream(Async[F].pure[OutputStream](tarOutputStream), closeAfterUse = false)) ++
+                Stream.exec(Async[F].interruptible(tarOutputStream.closeArchiveEntry()))
+            } ++
+            // Closing the codec here rather than in the resource finalizer is deliberate: this is a
+            // cancelable region, so an interrupted close aborts and lets the finalizer close the
+            // pipe. In a finalizer the same call is uninterruptible and blocks forever whenever the
+            // consumer has stopped draining (#113).
+            Stream.exec(Async[F].interruptible(tarOutputStream.close()))).compile.drain
         }
     }
   }

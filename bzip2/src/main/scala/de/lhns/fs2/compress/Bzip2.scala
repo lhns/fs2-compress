@@ -1,7 +1,7 @@
 package de.lhns.fs2.compress
 
 import cats.effect.Async
-import fs2.Pipe
+import fs2.{Pipe, Stream}
 import fs2.io._
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream}
 
@@ -10,20 +10,27 @@ import java.io.{BufferedInputStream, OutputStream}
 class Bzip2Compressor[F[_]: Async] private (blockSize: Option[Int], chunkSize: Int) extends Compressor[F] {
   override def compress: Pipe[F, Byte, Byte] = { stream =>
     readOutputStream[F](chunkSize) { outputStream =>
-      stream
-        .through(
-          writeOutputStream(
-            Async[F].blocking[OutputStream](
-              blockSize.fold(
-                new BZip2CompressorOutputStream(outputStream)
-              )(
-                new BZip2CompressorOutputStream(outputStream, _)
-              )
-            )
+      CloseGuard(
+        Async[F].blocking[OutputStream](
+          blockSize.fold(
+            new BZip2CompressorOutputStream(outputStream)
+          )(
+            new BZip2CompressorOutputStream(outputStream, _)
           )
         )
-        .compile
-        .drain
+      )(
+        close = os => Async[F].blocking(os.close()),
+        // close() -> finish() writes the buffered final block, up to ~900 kB, into `outputStream`.
+        abort = os =>
+          Async[F].blocking {
+            outputStream.close()
+            os.close()
+          }
+      ).use { os =>
+        (stream
+          .through(writeOutputStream(Async[F].pure(os), closeAfterUse = false)) ++
+          Stream.exec(Async[F].interruptible(os.close()))).compile.drain
+      }
     }
   }
 }
