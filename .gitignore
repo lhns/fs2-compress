@@ -35,6 +35,8 @@ lib_managed/
 src_managed/
 project/boot/
 project/plugins/project/
+# sbt 2 keeps a base directory per project matrix row here
+.sbt/matrix/
 .history
 .cache
 .lib/

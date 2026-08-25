@@ -3,23 +3,10 @@ lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
 ThisBuild / scalaVersion := scalaVersions.head
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / organization := "de.lhns"
+// The staging bundle is named from the build-level version, so it has to be set here as well as per project. sbt 2 does
+// not see that use and reports the key as unused, hence the lint exclusion below.
 ThisBuild / version := (core.projectRefs.head / version).value
-name := (core.projectRefs.head / name).value
-
-val V = new {
-  val betterMonadicFor = "0.3.1"
-  val brotli = "0.1.2"
-  val brotli4j = "1.23.0"
-  val catsEffect = "3.7.1"
-  val commonsCompress = "1.28.0"
-  val fs2 = "3.13.0"
-  val logbackClassic = "1.6.3"
-  val lz4 = "1.8.1"
-  val munitCatsEffect = "2.2.0"
-  val snappy = "1.1.10.8"
-  val zip4j = "2.11.6"
-  val zstdJni = "1.5.7-15"
-}
+Global / excludeLintKeys += ThisBuild / version
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
   version := {
@@ -47,7 +34,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   ),
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % V.logbackClassic % Test,
-    "org.typelevel" %%% "munit-cats-effect" % V.munitCatsEffect % Test
+    "org.typelevel" %% "munit-cats-effect" % V.munitCatsEffect % Test
   ),
   testFrameworks += new TestFramework("munit.Framework"),
   // Run tests in their own JVM with a heap of their own, so that how much memory they have does not depend on how sbt
@@ -56,8 +43,11 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   // no tests of its own.
   Test / fork := virtualAxes.?.value.getOrElse(Seq.empty).contains(VirtualAxis.jvm),
   // The heap is deliberately settable: the memory checks run with a small one, so that a codec holding on to what it is
-  // given runs out of memory rather than merely being slower. See MemorySuite.
-  Test / javaOptions += sys.env.getOrElse("FS2_COMPRESS_TEST_XMX", "-Xmx1G"),
+  // given runs out of memory rather than merely being slower. See MemorySuite. Only where the tests fork, since sbt
+  // warns about java options it cannot pass on.
+  Test / javaOptions ++= {
+    if ((Test / fork).value) Seq(sys.env.getOrElse("FS2_COMPRESS_TEST_XMX", "-Xmx1G")) else Nil
+  },
   // Keep the memory checks out of an ordinary run. They are slow and only mean anything with a small heap, so the
   // memory-check workflow sets FS2_COMPRESS_MEMORY_CHECK and runs them on their own.
   Test / testOptions ++= {
@@ -68,22 +58,23 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     case VirtualAxis.ScalaVersionAxis(version, _) if version.startsWith("2.") =>
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
   },
-  Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
-  publishTo := sonatypePublishToBundle.value,
-  sonatypeCredentialHost := Sonatype.sonatypeCentralHost,
+  // sbt 2 publishes to the Central Portal itself, through the sonaBundle and sonaRelease tasks, so there is no
+  // publishTo to set and no sonatype plugin to add. Credentials are looked up by host.
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")
     password <- sys.env.get("SONATYPE_PASSWORD")
   } yield Credentials(
     "Sonatype Nexus Repository Manager",
-    sonatypeCredentialHost.value,
+    "central.sonatype.com",
     username,
     password
   )).toList
 )
 
+// The root aggregate keeps its own name. Giving it core's name, as this build used to, puts the two in the same output
+// directory, which sbt 2 rejects.
 lazy val root: Project =
   project
     .in(file("."))
@@ -110,8 +101,8 @@ lazy val core = projectMatrix
   .settings(
     name := "fs2-compress",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-core" % V.fs2,
-      "org.typelevel" %%% "cats-effect" % V.catsEffect
+      "co.fs2" %% "fs2-core" % V.fs2,
+      "org.typelevel" %% "cats-effect" % V.catsEffect
     )
   )
   // fs2-io is JVM only here: OutputStreams wraps fs2.io.readOutputStream, which does not exist on JS.
@@ -119,7 +110,11 @@ lazy val core = projectMatrix
     scalaVersions,
     Seq(libraryDependencies += "co.fs2" %% "fs2-io" % V.fs2)
   )
-  .jsPlatform(scalaVersions)
+  .jsPlatform(
+    scalaVersions,
+    // Only the Scala.js rows have a linker to configure.
+    Seq(Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)))
+  )
 
 lazy val gzip = projectMatrix
   .in(file("gzip"))
@@ -128,11 +123,15 @@ lazy val gzip = projectMatrix
   .settings(
     name := "fs2-compress-gzip",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2
+      "co.fs2" %% "fs2-io" % V.fs2
     )
   )
   .jvmPlatform(scalaVersions)
-  .jsPlatform(scalaVersions)
+  .jsPlatform(
+    scalaVersions,
+    // Only the Scala.js rows have a linker to configure.
+    Seq(Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)))
+  )
 
 lazy val zip = projectMatrix
   .in(file("zip"))
@@ -141,7 +140,7 @@ lazy val zip = projectMatrix
   .settings(
     name := "fs2-compress-zip",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2
+      "co.fs2" %% "fs2-io" % V.fs2
     )
   )
   .jvmPlatform(scalaVersions)
@@ -153,7 +152,7 @@ lazy val zip4j = projectMatrix
   .settings(
     name := "fs2-compress-zip4j",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "net.lingala.zip4j" % "zip4j" % V.zip4j
     )
   )
@@ -167,7 +166,7 @@ lazy val tar = projectMatrix
   .settings(
     name := "fs2-compress-tar",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.apache.commons" % "commons-compress" % V.commonsCompress
     )
   )
@@ -180,7 +179,7 @@ lazy val zstd = projectMatrix
   .settings(
     name := "fs2-compress-zstd",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "com.github.luben" % "zstd-jni" % V.zstdJni
     )
   )
@@ -193,7 +192,7 @@ lazy val bzip2 = projectMatrix
   .settings(
     name := "fs2-compress-bzip2",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.apache.commons" % "commons-compress" % V.commonsCompress
     )
   )
@@ -206,7 +205,7 @@ lazy val brotli = projectMatrix
   .settings(
     name := "fs2-compress-brotli",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.brotli" % "dec" % V.brotli
     )
   )
@@ -219,7 +218,7 @@ lazy val brotli4j = projectMatrix
   .settings(
     name := "fs2-compress-brotli4j",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "com.aayushatharva.brotli4j" % "brotli4j" % V.brotli4j
     )
   )
@@ -232,7 +231,7 @@ lazy val lz4 = projectMatrix
   .settings(
     name := "fs2-compress-lz4",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.lz4" % "lz4-java" % V.lz4
     )
   )
@@ -245,7 +244,7 @@ lazy val snappy = projectMatrix
   .settings(
     name := "fs2-compress-snappy",
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % V.fs2,
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.xerial.snappy" % "snappy-java" % V.snappy
     )
   )

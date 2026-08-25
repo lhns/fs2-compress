@@ -25,5 +25,4 @@ jobs:
         env:
           FS2_COMPRESS_MEMORY_CHECK: '1'
           FS2_COMPRESS_TEST_XMX: ${{ inputs.xmx }}
-          SBT_OPTS: '-Xmx2G'
         run: sbt "testOnly *MemorySuite"
