@@ -26,17 +26,15 @@ jobs:
       - name: Test
         env:
           CI_VERSION: ${{ github.ref }}
-          SBT_OPTS: '-Xmx2G'
-        run: sbt "; test"
+        run: sbt "; testFull"
       - name: Publish
         env:
           CI_VERSION: ${{ github.ref }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          SBT_OPTS: '-Xmx2G'
         if: github.event_name == 'release'
         run: |
-          sbt "; sonatypeBundleClean; publishSigned; sonatypeBundleRelease"
+          sbt "; publishSigned; sonaRelease"
   dependency-graph:
     name: Update Dependency Graph
     runs-on: ubuntu-latest

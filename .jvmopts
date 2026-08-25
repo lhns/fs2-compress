@@ -1,0 +1,3 @@
+# Linking Scala.js needs more than the sbt server's default heap, and running out of it kills the build partway
+# through. Setting it here keeps that from depending on how sbt was started.
+-Xmx2G

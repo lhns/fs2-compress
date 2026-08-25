@@ -2,7 +2,6 @@ package de.lhns.fs2.compress
 
 import cats.effect.IO
 
-
 class Bzip2MemorySuite extends MemorySuite {
   override protected def compressor: Compressor[IO] = Bzip2Compressor.make[IO]()
   override protected def decompressor: Decompressor[IO] = Bzip2Decompressor.make[IO]()
