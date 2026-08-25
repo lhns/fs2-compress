@@ -13,22 +13,38 @@ import java.nio.file.attribute.FileTime
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 
 object Zip {
-  // The underlying information is lost if the name or isDirectory attribute of an ArchiveEntry is changed
+  // The underlying information is lost if the name or isDirectory attribute of an ArchiveEntry is changed, except for
+  // the CRC, which describes the data rather than the name and is carried over.
   implicit val zipArchiveEntryToUnderlying: ArchiveEntryToUnderlying[ZipEntry] =
     new ArchiveEntryToUnderlying[ZipEntry] {
       override def underlying[S[A] <: Option[A]](entry: ArchiveEntry[S, Any], underlying: Any): ZipEntry = {
-        val zipEntry = underlying match {
-          case zipEntry: ZipEntry if zipEntry.getName == entry.name && zipEntry.isDirectory == entry.isDirectory =>
-            new ZipEntry(zipEntry)
-
-          case _ =>
-            val fileOrDirName = entry.name match {
-              case name if entry.isDirectory && !name.endsWith("/") => name + "/"
-              case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
-              case name => name
-            }
-            new ZipEntry(fileOrDirName)
+        val fileOrDirName = entry.name match {
+          case name if entry.isDirectory && !name.endsWith("/") => name + "/"
+          case name if !entry.isDirectory && name.endsWith("/") => name.dropRight(1)
+          case name => name
         }
+
+        val previous = underlying match {
+          case zipEntry: ZipEntry => Some(zipEntry)
+          case _ => None
+        }
+
+        // Whether the native entry still describes the same data. A directory holds none, and a size that no longer
+        // agrees means the data has been replaced, so anything derived from it is stale.
+        val describesSameData = previous.exists { zipEntry =>
+          zipEntry.isDirectory == entry.isDirectory &&
+          (entry.uncompressedSize: Option[Long]).forall(size => zipEntry.getSize == -1 || zipEntry.getSize == size)
+        }
+
+        val zipEntry = previous match {
+          case Some(zipEntry) if describesSameData && zipEntry.getName == fileOrDirName => new ZipEntry(zipEntry)
+          case _ => new ZipEntry(fileOrDirName)
+        }
+
+        // Renaming an entry leaves the rest of the native entry behind, since it may no longer be valid under the new
+        // name. The CRC is taken over the data, which a rename does not touch, so it comes along.
+        if (zipEntry.getCrc == -1 && describesSameData)
+          previous.map(_.getCrc).filterNot(_ == -1).foreach(zipEntry.setCrc)
 
         entry.uncompressedSize.foreach(zipEntry.setSize)
         entry.lastModified.map(FileTime.from).foreach(zipEntry.setLastModifiedTime)
@@ -37,6 +53,25 @@ object Zip {
         zipEntry
       }
     }
+
+  implicit class ZipArchiveEntryOps[Size[A] <: Option[A], Underlying](
+      private val entry: ArchiveEntry[Size, Underlying]
+  ) extends AnyVal {
+
+    /** Give the entry the CRC of the data it describes, which [[ZipArchiver.makeStored]] requires.
+      *
+      * An entry read out of a zip already carries its CRC and needs none of this. For one that does not, compute it
+      * with `java.util.zip.CRC32`.
+      *
+      * The CRC survives a later [[ArchiveEntry.withName]], but not a change of size, which means the data it was taken
+      * over has been replaced.
+      */
+    def withCrc(crc: Long): ArchiveEntry[Size, ZipEntry] = {
+      val zipEntry = entry.underlying[ZipEntry]
+      zipEntry.setCrc(crc)
+      entry.withUnderlying(zipEntry)
+    }
+  }
 
   implicit val zipArchiveEntryFromUnderlying: ArchiveEntryFromUnderlying[Option, ZipEntry] =
     new ArchiveEntryFromUnderlying[Option, ZipEntry] {
@@ -60,21 +95,30 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
     * therefore known to be zero.
     */
   private def prepared(zipEntry: ZipEntry): ZipEntry = {
-    val entryMethod = if (zipEntry.getMethod == -1) method else zipEntry.getMethod
+    // An entry copied from another archive brings that archive's method and compressed size with it. Neither is part
+    // of the model the caller works with, and the factory that made this archiver already said which method to write,
+    // so both are set here rather than inherited.
+    zipEntry.setMethod(method)
 
-    if (entryMethod == ZipOutputStream.STORED) {
+    if (method == ZipOutputStream.STORED) {
       if (zipEntry.isDirectory || zipEntry.getSize == 0) {
         zipEntry.setSize(0)
-        zipEntry.setCompressedSize(0)
         zipEntry.setCrc(0)
       }
 
       if (zipEntry.getCrc == -1)
         throw new IllegalArgumentException(
           s"Entry ${zipEntry.getName} is stored uncompressed but carries no CRC. The STORED method writes the CRC " +
-            "ahead of the data, so it cannot be computed while the entry is being written. Set it on a ZipEntry and " +
-            "pass that as the underlying entry, or use ZipArchiver.makeDeflated."
+            "ahead of the data, so it cannot be computed while the entry is being written. Give the entry its CRC " +
+            "with withCrc, or use ZipArchiver.makeDeflated."
         )
+
+      // Stored data is written as it is, so this is the size. Left alone it would still hold the compressed size of
+      // whatever archive the entry was copied from.
+      zipEntry.setCompressedSize(zipEntry.getSize)
+    } else {
+      // Deflating produces a compressed size of its own, and writing rejects an entry that declares a different one.
+      zipEntry.setCompressedSize(-1)
     }
 
     zipEntry
@@ -112,29 +156,24 @@ object ZipArchiver {
   ): ZipArchiver[F, Size] =
     new ZipArchiver(method, chunkSize)
 
-  /** Make a new [[ZipArchiver]] which uses the DEFLATED method for entries that don't specify their own method.
+  /** Make a new [[ZipArchiver]] which writes every entry with the DEFLATED method.
     */
   def makeDeflated[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Option] =
     make[F, Option](ZipOutputStream.DEFLATED, chunkSize)
 
-  /** Make a new [[ZipArchiver]] which uses the STORED method for entries that don't specify their own method.
+  /** Make a new [[ZipArchiver]] which writes every entry with the STORED method.
     *
     * Entries are written uncompressed, which is worth having for data that is already compressed. The zip header for a
     * stored entry carries both the size and the CRC of the data, and both come before the data itself, so neither can
-    * be worked out while the entry is being written. The size is required by the type. The CRC has to be supplied on
-    * the underlying entry:
+    * be worked out while the entry is being written. The size is required by the type, and the CRC is given to the
+    * entry with `withCrc`:
     *
     * {{{
-    * val zipEntry = new ZipEntry("photo.jpg")
-    * zipEntry.setSize(size)
-    * zipEntry.setCompressedSize(size)
-    * zipEntry.setCrc(crc)
-    *
-    * ArchiveEntry[Some, Any]("photo.jpg", Some(size)).withUnderlying(zipEntry) -> data
+    * ArchiveEntry[Some, Any]("photo.jpg", Some(size)).withCrc(crc) -> data
     * }}}
     *
-    * The name on the ZipEntry has to match the name on the ArchiveEntry, otherwise the entry is rebuilt from scratch
-    * and the CRC is lost. Directories and empty entries need nothing, since their CRC is zero.
+    * Directories and empty entries need nothing, since their CRC is zero. Neither does an entry read out of another
+    * zip, which brings its CRC with it.
     */
   def makeStored[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Some] =
     make[F, Some](ZipOutputStream.STORED, chunkSize)
