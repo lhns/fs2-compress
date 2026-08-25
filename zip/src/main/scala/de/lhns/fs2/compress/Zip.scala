@@ -54,6 +54,32 @@ object Zip {
 }
 
 class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int) extends Archiver[F, Size] {
+
+  /** STORED writes the CRC into the entry header, which comes before the data it describes, so unlike DEFLATED it
+    * cannot be computed as the entry is written. The caller has to supply it, except where there is no data and it is
+    * therefore known to be zero.
+    */
+  private def prepared(zipEntry: ZipEntry): ZipEntry = {
+    val entryMethod = if (zipEntry.getMethod == -1) method else zipEntry.getMethod
+
+    if (entryMethod == ZipOutputStream.STORED) {
+      if (zipEntry.isDirectory || zipEntry.getSize == 0) {
+        zipEntry.setSize(0)
+        zipEntry.setCompressedSize(0)
+        zipEntry.setCrc(0)
+      }
+
+      if (zipEntry.getCrc == -1)
+        throw new IllegalArgumentException(
+          s"Entry ${zipEntry.getName} is stored uncompressed but carries no CRC. The STORED method writes the CRC " +
+            "ahead of the data, so it cannot be computed while the entry is being written. Set it on a ZipEntry and " +
+            "pass that as the underlying entry, or use ZipArchiver.makeDeflated."
+        )
+    }
+
+    zipEntry
+  }
+
   override def archive: Pipe[F, (ArchiveEntry[Size, Any], Stream[F, Byte]), Byte] = { stream =>
     OutputStreams.readWrappedOutputStream[F, ZipOutputStream](chunkSize) { outputStream =>
       val zipOutputStream = new ZipOutputStream(outputStream)
@@ -63,11 +89,11 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
       stream
         .through(checkUncompressedSize)
         .flatMap { case (archiveEntry, stream) =>
-          def entry = archiveEntry.underlying[ZipEntry]
-
           // These writes happen in the stream rather than in a Resource so that they can be
           // cancelled. See OutputStreams.
-          Stream.exec(Async[F].interruptible(zipOutputStream.putNextEntry(entry))) ++
+          Stream.exec(Async[F].interruptible {
+            zipOutputStream.putNextEntry(prepared(archiveEntry.underlying[ZipEntry]))
+          }) ++
             stream
               .through(writeOutputStream(Async[F].pure[OutputStream](zipOutputStream), closeAfterUse = false)) ++
             Stream.exec(Async[F].interruptible(zipOutputStream.closeEntry()))
@@ -92,8 +118,23 @@ object ZipArchiver {
     make[F, Option](ZipOutputStream.DEFLATED, chunkSize)
 
   /** Make a new [[ZipArchiver]] which uses the STORED method for entries that don't specify their own method.
-    * @note
-    *   In order to use the STORED method the size must be known up front.
+    *
+    * Entries are written uncompressed, which is worth having for data that is already compressed. The zip header for a
+    * stored entry carries both the size and the CRC of the data, and both come before the data itself, so neither can
+    * be worked out while the entry is being written. The size is required by the type. The CRC has to be supplied on
+    * the underlying entry:
+    *
+    * {{{
+    * val zipEntry = new ZipEntry("photo.jpg")
+    * zipEntry.setSize(size)
+    * zipEntry.setCompressedSize(size)
+    * zipEntry.setCrc(crc)
+    *
+    * ArchiveEntry[Some, Any]("photo.jpg", Some(size)).withUnderlying(zipEntry) -> data
+    * }}}
+    *
+    * The name on the ZipEntry has to match the name on the ArchiveEntry, otherwise the entry is rebuilt from scratch
+    * and the CRC is lost. Directories and empty entries need nothing, since their CRC is zero.
     */
   def makeStored[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Some] =
     make[F, Some](ZipOutputStream.STORED, chunkSize)
