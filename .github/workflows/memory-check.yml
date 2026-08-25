@@ -1,0 +1,29 @@
+name: memory-check
+
+# Run by hand. Puts a large amount of data through every codec in a JVM whose heap is far smaller than that volume, so
+# that a codec holding on to what it is given runs out of memory instead of merely being slower.
+on:
+  workflow_dispatch:
+    inputs:
+      xmx:
+        description: 'Heap for the test JVM. Has to stay well below the volume each codec streams.'
+        required: false
+        default: '-Xmx96m'
+
+jobs:
+  memory-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5.7.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1.5.8
+      - name: Memory check
+        env:
+          FS2_COMPRESS_MEMORY_CHECK: '1'
+          FS2_COMPRESS_TEST_XMX: ${{ inputs.xmx }}
+          SBT_OPTS: '-Xmx2G'
+        run: sbt "testOnly *MemorySuite"
