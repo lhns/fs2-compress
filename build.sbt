@@ -50,6 +50,20 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
     "org.typelevel" %%% "munit-cats-effect" % V.munitCatsEffect % Test
   ),
   testFrameworks += new TestFramework("munit.Framework"),
+  // Run tests in their own JVM with a heap of their own, so that how much memory they have does not depend on how sbt
+  // was started. Without this they share the build tool's heap, which differs between a native sbt and a BSP server.
+  // Only the JVM rows: Scala.js refuses to run its tests in a forked JVM, and the root project is not a matrix and has
+  // no tests of its own.
+  Test / fork := virtualAxes.?.value.getOrElse(Seq.empty).contains(VirtualAxis.jvm),
+  // The heap is deliberately settable: the memory checks run with a small one, so that a codec holding on to what it is
+  // given runs out of memory rather than merely being slower. See MemorySuite.
+  Test / javaOptions += sys.env.getOrElse("FS2_COMPRESS_TEST_XMX", "-Xmx1G"),
+  // Keep the memory checks out of an ordinary run. They are slow and only mean anything with a small heap, so the
+  // memory-check workflow sets FS2_COMPRESS_MEMORY_CHECK and runs them on their own.
+  Test / testOptions ++= {
+    if (sys.env.contains("FS2_COMPRESS_MEMORY_CHECK")) Nil
+    else Seq(Tests.Filter(name => !name.endsWith("MemorySuite")))
+  },
   libraryDependencies ++= virtualAxes.?.value.getOrElse(Seq.empty).collectFirst {
     case VirtualAxis.ScalaVersionAxis(version, _) if version.startsWith("2.") =>
       compilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor)
