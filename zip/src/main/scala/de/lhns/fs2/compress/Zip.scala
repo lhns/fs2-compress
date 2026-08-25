@@ -24,27 +24,20 @@ object Zip {
           case name => name
         }
 
-        val previous = underlying match {
-          case zipEntry: ZipEntry => Some(zipEntry)
-          case _ => None
-        }
+        val zipEntry = underlying match {
+          case zipEntry: ZipEntry if zipEntry.getName == fileOrDirName && zipEntry.isDirectory == entry.isDirectory =>
+            new ZipEntry(zipEntry)
 
-        // Whether the native entry still describes the same data. A directory holds none, and a size that no longer
-        // agrees means the data has been replaced, so anything derived from it is stale.
-        val describesSameData = previous.exists { zipEntry =>
-          zipEntry.isDirectory == entry.isDirectory &&
-          (entry.uncompressedSize: Option[Long]).forall(size => zipEntry.getSize == -1 || zipEntry.getSize == size)
-        }
+          case zipEntry: ZipEntry =>
+            // The native entry describes a different name, so the rest of it may no longer be valid and the entry is
+            // built again. The CRC is taken over the data rather than the name, so it comes along.
+            val renamed = new ZipEntry(fileOrDirName)
+            if (zipEntry.getCrc != -1) renamed.setCrc(zipEntry.getCrc)
+            renamed
 
-        val zipEntry = previous match {
-          case Some(zipEntry) if describesSameData && zipEntry.getName == fileOrDirName => new ZipEntry(zipEntry)
-          case _ => new ZipEntry(fileOrDirName)
+          case _ =>
+            new ZipEntry(fileOrDirName)
         }
-
-        // Renaming an entry leaves the rest of the native entry behind, since it may no longer be valid under the new
-        // name. The CRC is taken over the data, which a rename does not touch, so it comes along.
-        if (zipEntry.getCrc == -1 && describesSameData)
-          previous.map(_.getCrc).filterNot(_ == -1).foreach(zipEntry.setCrc)
 
         entry.uncompressedSize.foreach(zipEntry.setSize)
         entry.lastModified.map(FileTime.from).foreach(zipEntry.setLastModifiedTime)
@@ -63,8 +56,8 @@ object Zip {
       * An entry read out of a zip already carries its CRC and needs none of this. For one that does not, compute it
       * with `java.util.zip.CRC32`.
       *
-      * The CRC survives a later [[ArchiveEntry.withName]], but not a change of size, which means the data it was taken
-      * over has been replaced.
+      * The CRC survives a later [[ArchiveEntry.withName]], since renaming an entry does not change its data. Give the
+      * entry a new one if the data itself changes.
       */
     def withCrc(crc: Long): ArchiveEntry[Size, ZipEntry] = {
       val zipEntry = entry.underlying[ZipEntry]

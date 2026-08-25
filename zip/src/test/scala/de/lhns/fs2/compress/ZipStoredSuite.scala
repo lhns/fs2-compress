@@ -100,28 +100,6 @@ class ZipStoredSuite extends CatsEffectSuite {
     } yield ()
   }
 
-  test("a CRC is dropped when the size no longer agrees with it") {
-    val bytes = "hello".getBytes
-    // The CRC belongs to the original data. Declaring a different size means that data has been replaced, so keeping
-    // the CRC would write an archive that fails to extract.
-    val entry = ArchiveEntry[Some, Any]("test", Some(bytes.length.toLong))
-      .withCrc(crcOf(bytes))
-      .withUncompressedSize(Some(bytes.length.toLong + 1))
-
-    Stream
-      .emit(entry -> Stream.chunk[IO, Byte](Chunk.array(bytes ++ Array[Byte]('!'))))
-      .through(archiver.archive)
-      .compile
-      .drain
-      .attempt
-      .map {
-        case Left(e: IllegalArgumentException) =>
-          assert(e.getMessage.contains("test"), s"the message should name the entry, got: ${e.getMessage}")
-        case Left(other) => fail(s"expected an IllegalArgumentException but got $other")
-        case Right(_) => fail("a CRC belonging to different data was allowed through")
-      }
-  }
-
   test("an entry carrying another archive's method and compressed size is still written stored") {
     val bytes = "hello".getBytes
     // What an entry read out of a deflated archive looks like: it brings that archive's method and compressed size
