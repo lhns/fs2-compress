@@ -1,12 +1,23 @@
+lazy val V = (
+  betterMonadicFor = "0.3.1",
+  brotli = "0.1.2",
+  brotli4j = "1.23.0",
+  catsEffect = "3.7.1",
+  commonsCompress = "1.28.0",
+  fs2 = "3.13.0",
+  logbackClassic = "1.6.3",
+  lz4 = "1.8.1",
+  munitCatsEffect = "2.2.0",
+  snappy = "1.1.10.8",
+  zip4j = "2.11.6",
+  zstdJni = "1.5.7-15"
+)
+
 lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
 
-ThisBuild / scalaVersion := scalaVersions.head
-ThisBuild / versionScheme := Some("early-semver")
-ThisBuild / organization := "de.lhns"
-// The staging bundle is named from the build-level version, so it has to be set here as well as per project. sbt 2 does
-// not see that use and reports the key as unused, hence the lint exclusion below.
-ThisBuild / version := (core.projectRefs.head / version).value
-Global / excludeLintKeys += ThisBuild / version
+scalaVersion := scalaVersions.head
+versionScheme := Some("early-semver")
+organization := "de.lhns"
 
 lazy val commonSettings: SettingsDefinition = Def.settings(
   version := {
@@ -60,8 +71,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   },
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
-  // sbt 2 publishes to the Central Portal itself, through the sonaBundle and sonaRelease tasks, so there is no
-  // publishTo to set and no sonatype plugin to add. Credentials are looked up by host.
+  // Publishing to the Central Portal looks credentials up by host.
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")
     password <- sys.env.get("SONATYPE_PASSWORD")
@@ -73,8 +83,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   )).toList
 )
 
-// The root aggregate keeps its own name. Giving it core's name, as this build used to, puts the two in the same output
-// directory, which sbt 2 rejects.
+// The root aggregate needs a name of its own: sharing core's would put the two in the same output directory.
 lazy val root: Project =
   project
     .in(file("."))
