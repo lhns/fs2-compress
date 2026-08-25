@@ -39,9 +39,12 @@ import scala.concurrent.duration._
 trait CancellationSuite extends CatsEffectSuite {
 
   /** How long a stream gets to finish before it counts as stuck. This detects a deadlock rather than measuring
-    * performance, so it is deliberately much larger than anything a working implementation needs.
+    * performance, so it is deliberately much larger than anything a working implementation needs. A whole run forks a
+    * JVM per module and runs them at the same time, so a stream that normally takes a few seconds can take considerably
+    * longer on a loaded machine. Waiting longer costs nothing when the stream is not stuck, since the wait ends as soon
+    * as it finishes.
     */
-  protected def liveBudget: FiniteDuration = 10.seconds
+  protected def liveBudget: FiniteDuration = 1.minute
 
   /** Deliberately small. `fs2.io.readOutputStream` allocates a `PipedStreamBuffer(chunkSize)`, so the capacity of the
     * pipe is the chunk size. At 64 bytes, a consumer that stops draining makes the next write block, including the
@@ -56,7 +59,10 @@ trait CancellationSuite extends CatsEffectSuite {
 
   protected def payloadSize: Int = 128 * 1024
 
-  override def munitIOTimeout: Duration = 60.seconds
+  /** Comfortably above [[liveBudget]], so that a stuck stream is reported by the helpers below, which say what is stuck
+    * and why, rather than by munit cutting the test off first with a bare timeout.
+    */
+  override def munitIOTimeout: Duration = 3.minutes
 
   protected val boom: RuntimeException = new RuntimeException("boom")
 
