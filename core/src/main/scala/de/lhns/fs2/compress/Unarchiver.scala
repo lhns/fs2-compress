@@ -4,6 +4,12 @@ import cats.effect.{Async, Ref}
 import cats.syntax.all._
 import fs2.{Pipe, Stream}
 
+import scala.annotation.implicitNotFound
+
+@implicitNotFound(
+  "No Unarchiver[${F}, ${Size}, ${Underlying}] in scope. Build one with a codec's make, for example " +
+    "`ZipUnarchiver.make()`, and make it implicit."
+)
 trait Unarchiver[F[_], Size[A] <: Option[A], Underlying] {
   def unarchive: Pipe[F, Byte, (ArchiveEntry[Size, Underlying], Stream[F, Byte])]
 }
