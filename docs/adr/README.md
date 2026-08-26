@@ -38,6 +38,7 @@ supersedes it.
 | [0019](0019-share-the-output-stream-plumbing.md) | Share the `readOutputStream` plumbing in `OutputStreams` | Accepted |
 | [0020](0020-assert-cancellation-by-counting-not-timing.md) | Assert cancellation by counting bytes, not by elapsed time | Accepted |
 | [0021](0021-skipping-entries-and-stale-reads.md) | Let entries be skipped, and fail when reading data the archive has passed | Proposed |
+| [0022](0022-leave-default-instances-undecided.md) | Leave default instances undecided for now | Proposed |
 
 ## Threads worth following
 
@@ -56,3 +57,7 @@ when a consumer skips an entry.
 **When to add a module rather than change one.** 0002 established one artifact per codec,
 0007 and 0015 both applied it by adding a second implementation of a format rather than
 replacing the first, and 0014 wrote down the shape a new module follows.
+
+**How a caller gets an instance.** 0005 settled that `apply` summons and `make` constructs,
+0006 explains why gzip's `make` asks for more than the others, and 0022 is the open question
+of whether there should be a third way that skips `make` altogether.
