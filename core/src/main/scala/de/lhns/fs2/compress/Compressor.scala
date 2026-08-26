@@ -2,6 +2,12 @@ package de.lhns.fs2.compress
 
 import fs2.Pipe
 
+import scala.annotation.implicitNotFound
+
+@implicitNotFound(
+  "No Compressor[${F}] in scope. Build one with a codec's make, for example `GzipCompressor.make()`, and make it " +
+    "implicit."
+)
 trait Compressor[F[_]] {
   def compress: Pipe[F, Byte, Byte]
 }
