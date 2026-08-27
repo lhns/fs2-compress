@@ -38,10 +38,12 @@ jobs:
   dependency-graph:
     name: Update Dependency Graph
     runs-on: ubuntu-latest
+    # Submitting a snapshot needs a token that may write to the repository. Runs that Dependabot
+    # triggers are given a read-only one whatever the event, so there this job can only fail.
+    if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7
       - uses: sbt/setup-sbt@v1.5.8
       - uses: scalacenter/sbt-dependency-submission@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: env.GITHUB_TOKEN && github.event_name != 'pull_request'
