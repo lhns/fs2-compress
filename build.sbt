@@ -71,6 +71,14 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   },
   Compile / doc / sources := Seq.empty,
   publishMavenStyle := true,
+  // sbt knows how to publish to the Central Portal but does not point publishTo anywhere by
+  // itself. A release is staged on disk and uploaded from there by sonaRelease, which refuses a
+  // snapshot, so a build without a tag goes to the snapshot repository instead.
+  publishTo := {
+    val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+    if (version.value.endsWith("-SNAPSHOT")) Some("central-snapshots" at centralSnapshots)
+    else localStaging.value
+  },
   // Publishing to the Central Portal looks credentials up by host.
   credentials ++= (for {
     username <- sys.env.get("SONATYPE_USERNAME")

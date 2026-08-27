@@ -27,6 +27,14 @@ jobs:
         env:
           CI_VERSION: ${{ github.ref }}
         run: sbt "; testFull"
+      # Everything a release does apart from the upload, so that a broken publishing setup is
+      # found on the branch that breaks it rather than at the next release. publishTo is forced
+      # here rather than left to the version: a build with no tag is a snapshot, and a snapshot
+      # publishes straight to Sonatype rather than to the staging directory. Nothing may leave
+      # the runner, so the resolver is pinned instead of being derived.
+      - name: Check the release path
+        if: github.event_name == 'push'
+        run: sbt "; set every publishTo := localStaging.value ; publishSigned; sonaBundle"
       - name: Publish
         env:
           CI_VERSION: ${{ github.ref }}
