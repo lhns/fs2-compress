@@ -10,7 +10,7 @@ lazy val V = (
   munitCatsEffect = "2.2.0",
   snappy = "1.1.10.8",
   zip4j = "2.11.6",
-  zstdJni = "1.5.7-15"
+  zstdJni = "1.5.7-16"
 )
 
 lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
@@ -76,7 +76,7 @@ lazy val commonSettings: SettingsDefinition = Def.settings(
   // snapshot, so a build without a tag goes to the snapshot repository instead.
   publishTo := {
     val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
-    if (version.value.endsWith("-SNAPSHOT")) Some("central-snapshots" at centralSnapshots)
+    if (version.value.endsWith("-SNAPSHOT")) Some("central-snapshots".at(centralSnapshots))
     else localStaging.value
   },
   // Publishing to the Central Portal looks credentials up by host.
