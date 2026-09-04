@@ -13,7 +13,7 @@ lazy val V = (
   zstdJni = "1.5.7-16"
 )
 
-lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
+lazy val scalaVersions = Seq("3.9.0", "2.13.18", "2.12.21")
 
 scalaVersion := scalaVersions.head
 versionScheme := Some("early-semver")
