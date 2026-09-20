@@ -10,7 +10,7 @@ lazy val V = (
   munitCatsEffect = "2.2.0",
   snappy = "1.1.10.8",
   zip4j = "2.11.6",
-  zstdJni = "1.5.7-16"
+  zstdJni = "1.5.7-18"
 )
 
 lazy val scalaVersions = Seq("3.3.8", "2.13.18", "2.12.21")
