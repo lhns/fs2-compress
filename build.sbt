@@ -8,7 +8,7 @@ lazy val V = (
   logbackClassic = "1.6.3",
   lz4 = "1.8.1",
   munitCatsEffect = "2.2.0",
-  snappy = "1.1.10.11",
+  snappy = "1.1.10.12",
   zip4j = "2.11.6",
   zstdJni = "1.5.7-22"
 )
