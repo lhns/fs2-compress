@@ -51,7 +51,7 @@ sequential case.
 
 The entry loop was identical in all three unarchivers and now lives in `Unarchiver.readEntries`,
 beside the trait, in the same way the shared size check lives in `Archiver` (ADR 0010). It is
-`private[compress]`, like `OutputStreams` — it is how the unarchivers share a loop, not something
+`private[compress]`, like `OutputStreams` â€” it is how the unarchivers share a loop, not something
 callers need, and publishing it would tie the 2.x line to its signature (ADR 0017).
 
 ## Considered options
