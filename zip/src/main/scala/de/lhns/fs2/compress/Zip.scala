@@ -81,7 +81,8 @@ object Zip {
     }
 }
 
-class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int) extends Archiver[F, Size] {
+class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunkSize: Int, deflateLevel: Option[Int])
+    extends Archiver[F, Size] {
 
   /** STORED writes the CRC into the entry header, which comes before the data it describes, so unlike DEFLATED it
     * cannot be computed as the entry is written. The caller has to supply it, except where there is no data and it is
@@ -121,6 +122,7 @@ class ZipArchiver[F[_]: Async, Size[A] <: Option[A]] private (method: Int, chunk
     OutputStreams.readWrappedOutputStream[F, ZipOutputStream](chunkSize) { outputStream =>
       val zipOutputStream = new ZipOutputStream(outputStream)
       zipOutputStream.setMethod(method)
+      deflateLevel.foreach(zipOutputStream.setLevel)
       zipOutputStream
     } { zipOutputStream =>
       stream
@@ -147,12 +149,22 @@ object ZipArchiver {
       method: Int = ZipOutputStream.DEFLATED,
       chunkSize: Int = Defaults.defaultChunkSize
   ): ZipArchiver[F, Size] =
-    new ZipArchiver(method, chunkSize)
+    new ZipArchiver(method, chunkSize, deflateLevel = None)
 
   /** Make a new [[ZipArchiver]] which writes every entry with the DEFLATED method.
+    *
+    * `deflateLevel` is a `java.util.zip.Deflater` level, from `Deflater.NO_COMPRESSION` to `Deflater.BEST_COMPRESSION`.
+    * Leaving it out uses `Deflater.DEFAULT_COMPRESSION`.
     */
-  def makeDeflated[F[_]: Async](chunkSize: Int = Defaults.defaultChunkSize): ZipArchiver[F, Option] =
-    make[F, Option](ZipOutputStream.DEFLATED, chunkSize)
+  def makeDeflated[F[_]: Async](
+      chunkSize: Int = Defaults.defaultChunkSize,
+      deflateLevel: Option[Int] = None
+  ): ZipArchiver[F, Option] =
+    new ZipArchiver(ZipOutputStream.DEFLATED, chunkSize, deflateLevel)
+
+  /** Keeps code compiled against the version without `deflateLevel` linking. */
+  private[compress] def makeDeflated[F[_]: Async](chunkSize: Int): ZipArchiver[F, Option] =
+    makeDeflated[F](chunkSize, deflateLevel = None)
 
   /** Make a new [[ZipArchiver]] which writes every entry with the STORED method.
     *
