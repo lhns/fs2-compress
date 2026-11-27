@@ -1,7 +1,7 @@
 lazy val V = (
   betterMonadicFor = "0.3.1",
   brotli = "0.1.2",
-  brotli4j = "1.23.0",
+  brotli4j = "1.24.0",
   catsEffect = "3.7.1",
   commonsCompress = "1.28.0",
   fs2 = "3.14.0",
